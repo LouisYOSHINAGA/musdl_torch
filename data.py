@@ -1,4 +1,4 @@
-import os, glob
+import os, glob, math
 import pretty_midi as pm
 import numpy as np
 import torch as t
@@ -8,12 +8,15 @@ from typing import TypeAlias
 
 PianoRoll: TypeAlias = np.ndarray  # (time, note)
 PianoRolls: TypeAlias = list[PianoRoll]
+PianoRollTensor: TypeAlias = t.Tensor  # (time, note)
 
 
 class MIDIChoraleDatset(Dataset):
     def __init__(self, hps: HyperParams) -> None:
         self.is_sep_part: bool = hps.data_is_sep_part
-        self.sequece_length: int = hps.data_resolution_nth_note * hps.data_length_bars
+        self.sequence_length: int = hps.data_resolution_nth_note * hps.data_length_bars
+        self.extract_method: str = hps.data_extract_method
+        self.rng: np.random.Generator = np.random.default_rng()
         self.verbose: bool = hps.data_verbose
         self.load(hps)
 
@@ -90,12 +93,41 @@ class MIDIChoraleDatset(Dataset):
         # -> tempo/60: sample same number of times as 4th-notes per second
         # -> (N/4)*tempo/60: sample same number of times as Nth-notes per second
         pr: PianoRoll = midi.get_piano_roll(fs=int((resolution/4)*tempo/60))  # (pitch, time)
-        if pr.shape[1] < self.sequece_length:
-            pr = np.concatenate([np.zeros((pr.shape[0], self.sequece_length-pr.shape[1])), pr], axis=1)
+        if pr.shape[1] < self.sequence_length:
+            pr = np.concatenate([np.zeros((pr.shape[0], self.sequence_length-pr.shape[1])), pr], axis=1)
         return np.where(pr[note_low:note_high] <= 0, 0, 1).T
 
-    def __getitem__(self, index: int) -> t.Tensor:
-        ...
+    def __getitem__(self, index: int) -> tuple[PianoRollTensor, PianoRollTensor] | PianoRollTensor:
+        if self.is_sep_part:
+            pr_sop: PianoRoll = self.prs_sop[index]
+            pr_alt: PianoRoll = self.prs_alt[index]
+            start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
+            return t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end])
+        else:
+            pr: PianoRoll = self.prs[index]
+            start, end = self.get_sequence_range(full_length=pr.shape[0])
+            return t.Tensor(pr[start:end])
+
+    def get_sequence_range(self, full_length: int) -> tuple[int, int]:
+        first_half_length: int = math.floor(self.sequence_length/2)
+        second_half_length: int = math.ceil(self.sequence_length/2)
+        if self.extract_method == "head":
+            start: int = 0
+            end: int = start + self.sequence_length
+        elif self.extract_method == "center":
+            center: int = math.floor(full_length/2)
+            start = center - first_half_length
+            end = center + second_half_length
+        elif self.extract_method == "tail":
+            end  = full_length
+            start = end - self.sequence_length
+        elif self.extract_method == "random":
+            center = self.rng.integers(low=first_half_length, high=full_length-second_half_length)
+            start = center - first_half_length
+            end = center + second_half_length
+        else:
+            assert False, f"Unexpected method of data sequence extraction."
+        return start, end
 
     def __len__(self) -> int:
         return len(self.key_modes)
@@ -103,5 +135,16 @@ class MIDIChoraleDatset(Dataset):
 
 if __name__ == "__main__":
     from hparam import setup_hyperparams
-    dataset: Dataset = MIDIChoraleDatset(setup_hyperparams(data_verbose=True))
-    print(len(dataset))
+    dataset: Dataset = MIDIChoraleDatset(
+        setup_hyperparams(
+            data_is_sep_part=True,
+            data_extract_method="tail",
+            data_verbose=True
+        )
+    )
+    if dataset.is_sep_part:
+        data_sop, data_alt = dataset[0]
+        print(f"{data_sop.shape}")
+        print(f"{data_alt.shape}")
+    else:
+        print(f"{dataset[0].shape}")  # type: ignore
