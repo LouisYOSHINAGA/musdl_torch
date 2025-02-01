@@ -18,15 +18,14 @@ class HyperParams(dict):
 default_hps = HyperParams(
     data_path="dataset",
     data_ext=".mid",
+    data_is_sep_part=False,
     data_is_relative_pitch=False,
     data_resolution_nth_note=8,
     data_length_bars=8,
-    data_is_sep_part=False,
     data_extract_method="head",
-    data_is_aug_shift=False,
-    data_verbose=False,
-    data_train_test_split=0.8,
     data_batch_size=32,
+    data_train_test_split=0.8,
+    data_verbose=False,
 )
 
 

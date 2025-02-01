@@ -146,39 +146,15 @@ def make_dataloader(hps: HyperParams) -> tuple[DataLoader, DataLoader] | DataLoa
 
 if __name__ == "__main__":
     from hparam import setup_hyperparams
+    from util import plot_pianoroll
 
     hps = setup_hyperparams(
         data_is_sep_part=False,
         data_train_test_split=1,
     )
+
     train_dataloader = make_dataloader(hps)
     prbt: PianoRollBatchTensor = next(iter(train_dataloader))  # type: ignore
-    print(f"Batch size = {prbt.shape}\n")
 
-    hps = setup_hyperparams(
-        data_is_sep_part=False,
-        data_train_test_split=0.8,
-    )
-    train_dataloader, test_dataloader = make_dataloader(hps)
-    train_prbt: PianoRollBatchTensor = next(iter(train_dataloader))
-    test_prbt: PianoRollBatchTensor = next(iter(test_dataloader))
-    print(f"Batch size (train) = {train_prbt.shape}")
-    print(f"Batch size (test) = {test_prbt.shape}\n")
-
-    hps = setup_hyperparams(
-        data_is_sep_part=True,
-        data_train_test_split=1,
-    )
-    train_dataloader = make_dataloader(hps)
-    prbt_sop, prbt_alt = next(iter(train_dataloader))
-    print(f"Batch size = {prbt_sop.shape}, {prbt_alt.shape}\n")
-
-    hps = setup_hyperparams(
-        data_is_sep_part=True,
-        data_train_test_split=0.8,
-    )
-    train_dataloader, test_dataloader = make_dataloader(hps)
-    train_prbt_sop, train_prbt_alt = next(iter(train_dataloader))
-    test_prbt_sop, test_prbt_alt = next(iter(test_dataloader))
-    print(f"Batch size (train) = {train_prbt_sop.shape}, {train_prbt_alt.shape}")
-    print(f"Batch size (test) = {test_prbt_sop.shape}, {test_prbt_alt.shape}\n")
+    plot_pianoroll(prbt[0], n_bars=hps.data_length_bars)
+    print(f"Batch size = {prbt.shape}")
