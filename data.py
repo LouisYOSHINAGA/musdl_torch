@@ -2,13 +2,14 @@ import os, glob, math
 import pretty_midi as pm
 import numpy as np
 import torch as t
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader, random_split
 from hparam import HyperParams
 from typing import TypeAlias
 
 PianoRoll: TypeAlias = np.ndarray  # (time, note)
-PianoRolls: TypeAlias = list[PianoRoll]
+PianoRolls: TypeAlias = list[PianoRoll]  # [(time, note)]
 PianoRollTensor: TypeAlias = t.Tensor  # (time, note)
+PianoRollBatchTensor: TypeAlias = t.Tensor  # (batch, time, note)
 
 
 class MIDIChoraleDatset(Dataset):
@@ -122,7 +123,8 @@ class MIDIChoraleDatset(Dataset):
             end  = full_length
             start = end - self.sequence_length
         elif self.extract_method == "random":
-            center = self.rng.integers(low=first_half_length, high=full_length-second_half_length)
+            center = first_half_length if self.sequence_length == full_length \
+                     else self.rng.integers(low=first_half_length, high=full_length-second_half_length)
             start = center - first_half_length
             end = center + second_half_length
         else:
@@ -133,18 +135,55 @@ class MIDIChoraleDatset(Dataset):
         return len(self.key_modes)
 
 
+def make_dataloader(hps: HyperParams) -> tuple[DataLoader, DataLoader] | DataLoader:
+    dataset: Dataset = MIDIChoraleDatset(hps)
+
+    assert 0 <= hps.data_train_test_split <= 1, f"Invalid train:test split rate; '{hps.data_train_test_split}' must be in [0, 1]."
+    n_data: int = len(dataset)
+    n_train_data: int = int(hps.data_train_test_split * n_data)
+    n_test_data: int = n_data - n_train_data
+
+    train_dataset, test_dataset = random_split(dataset, [n_train_data, n_test_data])
+    train_dataloader: DataLoader = DataLoader(train_dataset, batch_size=hps.data_batch_size, shuffle=True)
+    test_dataloader: DataLoader = DataLoader(test_dataset, batch_size=hps.data_batch_size, shuffle=False)
+    return (train_dataloader, test_dataloader) if hps.data_train_test_split != 1 else train_dataloader
+
+
 if __name__ == "__main__":
     from hparam import setup_hyperparams
-    dataset: Dataset = MIDIChoraleDatset(
-        setup_hyperparams(
-            data_is_sep_part=True,
-            data_extract_method="tail",
-            data_verbose=True
-        )
+
+    hps = setup_hyperparams(
+        data_is_sep_part=False,
+        data_train_test_split=1,
     )
-    if dataset.is_sep_part:
-        data_sop, data_alt = dataset[0]
-        print(f"{data_sop.shape}")
-        print(f"{data_alt.shape}")
-    else:
-        print(f"{dataset[0].shape}")  # type: ignore
+    train_dataloader = make_dataloader(hps)
+    prbt: PianoRollBatchTensor = next(iter(train_dataloader))  # type: ignore
+    print(f"Batch size = {prbt.shape}\n")
+
+    hps = setup_hyperparams(
+        data_is_sep_part=False,
+        data_train_test_split=0.8,
+    )
+    train_dataloader, test_dataloader = make_dataloader(hps)
+    train_prbt: PianoRollBatchTensor = next(iter(train_dataloader))
+    test_prbt: PianoRollBatchTensor = next(iter(test_dataloader))
+    print(f"Batch size (train) = {train_prbt.shape}")
+    print(f"Batch size (test) = {test_prbt.shape}\n")
+
+    hps = setup_hyperparams(
+        data_is_sep_part=True,
+        data_train_test_split=1,
+    )
+    train_dataloader = make_dataloader(hps)
+    prbt_sop, prbt_alt = next(iter(train_dataloader))
+    print(f"Batch size = {prbt_sop.shape}, {prbt_alt.shape}\n")
+
+    hps = setup_hyperparams(
+        data_is_sep_part=True,
+        data_train_test_split=0.8,
+    )
+    train_dataloader, test_dataloader = make_dataloader(hps)
+    train_prbt_sop, train_prbt_alt = next(iter(train_dataloader))
+    test_prbt_sop, test_prbt_alt = next(iter(test_dataloader))
+    print(f"Batch size (train) = {train_prbt_sop.shape}, {train_prbt_alt.shape}")
+    print(f"Batch size (test) = {test_prbt_sop.shape}, {test_prbt_alt.shape}\n")

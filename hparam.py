@@ -26,6 +26,8 @@ default_hps = HyperParams(
     data_extract_method="head",
     data_is_aug_shift=False,
     data_verbose=False,
+    data_train_test_split=0.8,
+    data_batch_size=32,
 )
 
 
