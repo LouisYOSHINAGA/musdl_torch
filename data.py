@@ -3,13 +3,8 @@ import pretty_midi as pm
 import numpy as np
 import torch as t
 from torch.utils.data import Dataset, DataLoader, random_split
+from typedef import PianoRoll, PianoRolls, PianoRollTensor, PianoRollBatchTensor
 from hparam import HyperParams
-from typing import TypeAlias
-
-PianoRoll: TypeAlias = np.ndarray  # (time, note)
-PianoRolls: TypeAlias = list[PianoRoll]  # [(time, note)]
-PianoRollTensor: TypeAlias = t.Tensor  # (time, note)
-PianoRollBatchTensor: TypeAlias = t.Tensor  # (batch, time, note)
 
 
 class MIDIChoraleDatset(Dataset):
