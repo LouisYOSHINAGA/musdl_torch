@@ -23,6 +23,7 @@ default_hps = HyperParams(
     data_resolution_nth_note=8,
     data_length_bars=8,
     data_extract_method="head",
+    data_is_return_key_mode=False,
     data_batch_size=32,
     data_train_test_split=0.8,
     data_verbose=False,

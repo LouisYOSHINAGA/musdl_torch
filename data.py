@@ -6,6 +6,8 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from typedef import PianoRoll, PianoRolls, PianoRollTensor, PianoRollBatchTensor
 from hparam import HyperParams
 
+N_KEY_CLASS: int = 12
+
 
 class MIDIChoraleDatset(Dataset):
     def __init__(self, hps: HyperParams) -> None:
@@ -13,6 +15,7 @@ class MIDIChoraleDatset(Dataset):
         self.sequence_length: int = hps.data_resolution_nth_note * hps.data_length_bars
         self.extract_method: str = hps.data_extract_method
         self.rng: np.random.Generator = np.random.default_rng()
+        self.is_return_key_mode: bool = hps.data_is_return_key_mode
         self.verbose: bool = hps.data_verbose
         self.load(hps)
 
@@ -22,7 +25,7 @@ class MIDIChoraleDatset(Dataset):
         self.prs: PianoRolls = []
         self.prs_sop: PianoRolls = []
         self.prs_alt: PianoRolls = []
-        key_modes: list[int] = []
+        self.key_modes: list[int] = []
 
         for f in glob.glob(f"{hps.data_path}/*{hps.data_ext}"):
             prs_dct, key_mode = self.load_midi_file(
@@ -35,8 +38,7 @@ class MIDIChoraleDatset(Dataset):
                 self.prs_alt.append(prs_dct["alt"])
             else:
                 self.prs.append(prs_dct["whole"])
-            key_modes.append(key_mode)
-        self.key_modes: np.ndarray = np.array(key_modes)
+            self.key_modes.append(key_mode)
 
     def load_midi_file(self, filename: str, is_relative_pitch: bool, resolution: int) \
         -> tuple[dict[str, PianoRoll], int] | tuple[None, None]:
@@ -57,7 +59,7 @@ class MIDIChoraleDatset(Dataset):
             return None, None
 
         key_number: int = midi.key_signature_changes[0].key_number  # key number \in {major: {0..11}, minor: {12..23}}
-        key_mode: int = key_number // 12  # major => 0, minor => 1
+        key_mode: int = key_number // N_KEY_CLASS  # major => 0, minor => 1
         tempo: int = midi.get_tempo_changes()[1][0]
 
         if is_relative_pitch:
@@ -80,7 +82,7 @@ class MIDIChoraleDatset(Dataset):
         for inst in midi.instruments:
             if not inst.is_drum:
                 for note in inst.notes:
-                    note.pitch -= key_number % 12
+                    note.pitch -= key_number % N_KEY_CLASS
         return midi
 
     def midi_to_pianoroll(self, midi: pm.PrettyMIDI|pm.Instrument, tempo: int, resolution: int,
@@ -93,16 +95,19 @@ class MIDIChoraleDatset(Dataset):
             pr = np.concatenate([np.zeros((pr.shape[0], self.sequence_length-pr.shape[1])), pr], axis=1)
         return np.where(pr[note_low:note_high] <= 0, 0, 1).T
 
-    def __getitem__(self, index: int) -> tuple[PianoRollTensor, PianoRollTensor] | PianoRollTensor:
+    def __getitem__(self, index: int) -> tuple[PianoRollTensor, PianoRollTensor, t.Tensor] | tuple[PianoRollTensor, PianoRollTensor] \
+                                       | tuple[PianoRollTensor, t.Tensor] | PianoRollTensor:
+        key_mode_onehot: t.Tensor = t.eye(N_KEY_CLASS)[self.key_modes[index]]
         if self.is_sep_part:
             pr_sop: PianoRoll = self.prs_sop[index]
             pr_alt: PianoRoll = self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
-            return t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end])
+            return (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]), key_mode_onehot) if self.is_return_key_mode \
+                   else (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]))
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
-            return t.Tensor(pr[start:end])
+            return (t.Tensor(pr[start:end]), key_mode_onehot) if self.is_return_key_mode else t.Tensor(pr[start:end])
 
     def get_sequence_range(self, full_length: int) -> tuple[int, int]:
         first_half_length: int = math.floor(self.sequence_length/2)
