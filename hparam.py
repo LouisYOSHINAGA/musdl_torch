@@ -16,6 +16,8 @@ class HyperParams(dict):
 
 
 default_hps = HyperParams(
+    general_device="cpu",
+
     data_path="dataset",
     data_ext=".mid",
     data_is_sep_part=False,
@@ -27,6 +29,11 @@ default_hps = HyperParams(
     data_batch_size=32,
     data_train_test_split=0.8,
     data_verbose=False,
+
+    kdn_hidden_dims=[6, ],
+
+    train_lr=0.001,
+    train_epochs=1000,
 )
 
 

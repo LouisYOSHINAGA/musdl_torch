@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from typedef import PianoRoll, PianoRollTensor
+from typedef import *
 
 
 def plot_pianoroll(pr: PianoRoll|PianoRollTensor, n_bars: int,

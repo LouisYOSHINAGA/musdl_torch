@@ -3,10 +3,8 @@ import pretty_midi as pm
 import numpy as np
 import torch as t
 from torch.utils.data import Dataset, DataLoader, random_split
-from typedef import PianoRoll, PianoRolls, PianoRollTensor, PianoRollBatchTensor
+from typedef import *
 from hparam import HyperParams
-
-N_KEY_CLASS: int = 12
 
 
 class MIDIChoraleDatset(Dataset):
@@ -97,17 +95,17 @@ class MIDIChoraleDatset(Dataset):
 
     def __getitem__(self, index: int) -> tuple[PianoRollTensor, PianoRollTensor, t.Tensor] | tuple[PianoRollTensor, PianoRollTensor] \
                                        | tuple[PianoRollTensor, t.Tensor] | PianoRollTensor:
-        key_mode_onehot: t.Tensor = t.eye(N_KEY_CLASS)[self.key_modes[index]]
         if self.is_sep_part:
             pr_sop: PianoRoll = self.prs_sop[index]
             pr_alt: PianoRoll = self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
-            return (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]), key_mode_onehot) if self.is_return_key_mode \
+            return (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]), t.Tensor([self.key_modes[index]])) if self.is_return_key_mode \
                    else (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]))
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
-            return (t.Tensor(pr[start:end]), key_mode_onehot) if self.is_return_key_mode else t.Tensor(pr[start:end])
+            return (t.Tensor(pr[start:end]), t.Tensor([self.key_modes[index]])) if self.is_return_key_mode \
+                   else t.Tensor(pr[start:end])
 
     def get_sequence_range(self, full_length: int) -> tuple[int, int]:
         first_half_length: int = math.floor(self.sequence_length/2)
@@ -135,7 +133,7 @@ class MIDIChoraleDatset(Dataset):
         return len(self.key_modes)
 
 
-def make_dataloader(hps: HyperParams) -> tuple[DataLoader, DataLoader] | DataLoader:
+def setup_dataloaders(hps: HyperParams) -> tuple[DataLoader, DataLoader] | DataLoader:
     dataset: Dataset = MIDIChoraleDatset(hps)
 
     assert 0 <= hps.data_train_test_split <= 1, f"Invalid train:test split rate; '{hps.data_train_test_split}' must be in [0, 1]."
@@ -158,7 +156,7 @@ if __name__ == "__main__":
         data_train_test_split=1,
     )
 
-    train_dataloader = make_dataloader(hps)
+    train_dataloader = setup_dataloaders(hps)
     prbt: PianoRollBatchTensor = next(iter(train_dataloader))  # type: ignore
 
     plot_pianoroll(prbt[0], n_bars=hps.data_length_bars)
