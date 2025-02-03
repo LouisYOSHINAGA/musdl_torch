@@ -8,6 +8,7 @@ from typing import TypeAlias, Any
 from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from data import DataLoader, setup_dataloaders
+from util import plot_train_log
 
 PianoRollBowBatchTensor: TypeAlias = t.Tensor  # (batch, keyclass)
 
@@ -35,47 +36,56 @@ class KeyDiscNet(nn.Module):
         return self.kdnet(self.preprocess(prbt).to(self.device))  # (batch, ismaj)
 
 
-def train_test_loop(model: KeyDiscNet, opt: Adam, train_dataloader: DataLoader, test_dataloader: DataLoader, \
-                    epochs: int) -> tuple[TrainMetricLog, TrainMetricLog]:
-    train_losses: list[float] = []
-    test_accs: list[float] = []
+def train_test_loop(model: KeyDiscNet, opt: Adam, train_dataloader: DataLoader, test_dataloader: DataLoader, epochs: int) \
+    -> tuple[TrainMetricLog, TrainMetricLog, TrainMetricLog, TrainMetricLog]:
+    train_losses: TrainMetricLog = []
+    train_accs: TrainMetricLog = []
+    test_losses: TrainMetricLog = []
+    test_accs: TrainMetricLog = []
     for epoch in range(epochs):
-        print(f"epoch {epoch:03d}: ", end="")
-        train_loss: float = train(model, opt, train_dataloader)
+        train_loss, train_acc = train(model, opt, train_dataloader)
         train_losses.append(train_loss)
-        print(f"train loss = {train_loss:.5f}, ", end="")
-        test_acc: float = test(model, test_dataloader)
+        train_accs.append(train_acc)
+        test_loss, test_acc = test(model, test_dataloader)
+        test_losses.append(test_loss)
         test_accs.append(test_acc)
-        print(f"test accuracy = {test_acc:.5f}")
-    return train_losses, test_accs
+    return train_losses, train_accs, test_losses, test_accs
 
-def train(model: KeyDiscNet, opt: Adam, dataloader: DataLoader) -> float:
+def train(model: KeyDiscNet, opt: Adam, dataloader: DataLoader) -> tuple[float, float]:
     model.train()
     epoch_total_loss: float = 0
+    epoch_total_acc: float = 0
     for prbt, kmbt in dataloader:
         opt.zero_grad()
-        loss: t.Tensor = F.binary_cross_entropy(model(prbt), kmbt.to(model.device))
-        epoch_total_loss += loss.item()
+        pred_kmbt: t.Tensor = model(prbt)
+        loss: t.Tensor = F.binary_cross_entropy(pred_kmbt, kmbt.to(model.device))
         loss.backward()
+        epoch_total_loss += loss.item()
+        epoch_total_acc += binary_accuracy(pred_kmbt.squeeze(), kmbt.to(model.device).squeeze()).item()
         opt.step()
-    return epoch_total_loss / len(dataloader)
+    return epoch_total_loss / len(dataloader), epoch_total_acc / len(dataloader)
 
-def test(model: KeyDiscNet, dataloader: DataLoader) -> float:
+def test(model: KeyDiscNet, dataloader: DataLoader) -> tuple[float, float]:
     model.eval()
+    epoch_total_loss: float = 0
     epoch_total_acc: float = 0
     with t.no_grad():
         for prbt, kmbt in dataloader:
-            model.zero_grad()
-            pred_kmbt: t.Tensor = model(prbt).squeeze()
-            epoch_total_acc += binary_accuracy(pred_kmbt, kmbt.to(model.device).squeeze()).item()
-    return epoch_total_acc / len(dataloader)
+            pred_kmbt: t.Tensor = model(prbt)
+            epoch_total_loss += F.binary_cross_entropy(pred_kmbt, kmbt.to(model.device)).item()
+            epoch_total_acc += binary_accuracy(pred_kmbt.squeeze(), kmbt.to(model.device).squeeze()).item()
+    return epoch_total_loss / len(dataloader), epoch_total_acc / len(dataloader)
+
 
 def run(**kwargs: Any) -> None:
     hps: HyperParams = setup_hyperparams(**kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
     train_dataloader, test_dataloader = setup_dataloaders(hps)
     model: KeyDiscNet = KeyDiscNet(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
-    losses, accs = train_test_loop(model, opt, train_dataloader, test_dataloader, hps.train_epochs)
+    train_losses, train_accs, test_losses, test_accs = train_test_loop(
+        model, opt, train_dataloader, test_dataloader, hps.train_epochs
+    )
+    plot_train_log(train_losses, train_accs, test_losses, test_accs)
 
 if __name__ == "__main__":
     fire.Fire(run)
