@@ -1,4 +1,5 @@
 import fire
+from tqdm import tqdm
 import torch as t
 import torch.nn as nn
 from torch.optim import Adam
@@ -42,7 +43,7 @@ def train_test_loop(model: KeyDiscNet, opt: Adam, train_dataloader: DataLoader, 
     train_accs: TrainMetricLog = []
     test_losses: TrainMetricLog = []
     test_accs: TrainMetricLog = []
-    for epoch in range(epochs):
+    for _ in tqdm(range(epochs), desc="training progress"):
         train_loss, train_acc = train(model, opt, train_dataloader)
         train_losses.append(train_loss)
         train_accs.append(train_acc)
