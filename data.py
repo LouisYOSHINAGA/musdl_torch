@@ -38,6 +38,8 @@ class MIDIChoraleDatset(Dataset):
                 self.prs.append(prs_dct["whole"])
             self.key_modes.append(key_mode)
 
+        print(f"Load dataset from '{hps.data_path}'.")
+
     def load_midi_file(self, filename: str, is_relative_pitch: bool, resolution: int) \
         -> tuple[dict[str, PianoRoll], int] | tuple[None, None]:
 
@@ -90,7 +92,7 @@ class MIDIChoraleDatset(Dataset):
         # -> (N/4)*tempo/60: sample same number of times as Nth-notes per second
         pr: PianoRoll = midi.get_piano_roll(fs=int((resolution/4)*tempo/60))  # (pitch, time)
         if pr.shape[1] < self.sequence_length:
-            pr = np.concatenate([np.zeros((pr.shape[0], self.sequence_length-pr.shape[1])), pr], axis=1)
+            pr = np.concatenate([pr, np.zeros((pr.shape[0], self.sequence_length-pr.shape[1]))], axis=1)
         return np.where(pr[note_low:note_high] <= 0, 0, 1).T
 
     def __getitem__(self, index: int) -> tuple[PianoRollTensor, PianoRollTensor, t.Tensor] | tuple[PianoRollTensor, PianoRollTensor] \
