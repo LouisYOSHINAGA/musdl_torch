@@ -1,5 +1,4 @@
 import fire
-from tqdm import tqdm
 import torch as t
 import torch.nn as nn
 from torch.optim import Adam
@@ -8,7 +7,8 @@ from torcheval.metrics.functional import binary_accuracy
 from typing import TypeAlias, Any
 from typedef import *
 from hparam import HyperParams, setup_hyperparams
-from data import DataLoader, setup_dataloaders
+from data import setup_dataloaders
+from train import Trainer
 from util import plot_train_log
 
 PianoRollBowBatchTensor: TypeAlias = t.Tensor  # (batch, keyclass)
@@ -37,55 +37,15 @@ class KeyDiscNet(nn.Module):
         return self.kdnet(self.preprocess(prbt).to(self.device))  # (batch, ismaj)
 
 
-def train_test_loop(model: KeyDiscNet, opt: Adam, train_dataloader: DataLoader, test_dataloader: DataLoader, epochs: int) \
-    -> tuple[TrainMetricLog, TrainMetricLog, TrainMetricLog, TrainMetricLog]:
-    train_losses: TrainMetricLog = []
-    train_accs: TrainMetricLog = []
-    test_losses: TrainMetricLog = []
-    test_accs: TrainMetricLog = []
-    for _ in tqdm(range(epochs), desc="training progress"):
-        train_loss, train_acc = train(model, opt, train_dataloader)
-        train_losses.append(train_loss)
-        train_accs.append(train_acc)
-        test_loss, test_acc = test(model, test_dataloader)
-        test_losses.append(test_loss)
-        test_accs.append(test_acc)
-    return train_losses, train_accs, test_losses, test_accs
-
-def train(model: KeyDiscNet, opt: Adam, dataloader: DataLoader) -> tuple[float, float]:
-    model.train()
-    epoch_total_loss: float = 0
-    epoch_total_acc: float = 0
-    for prbt, kmbt in dataloader:
-        opt.zero_grad()
-        pred_kmbt: t.Tensor = model(prbt)
-        loss: t.Tensor = F.binary_cross_entropy(pred_kmbt, kmbt.to(model.device))
-        loss.backward()
-        epoch_total_loss += loss.item()
-        epoch_total_acc += binary_accuracy(pred_kmbt.squeeze(), kmbt.to(model.device).squeeze()).item()
-        opt.step()
-    return epoch_total_loss / len(dataloader), epoch_total_acc / len(dataloader)
-
-def test(model: KeyDiscNet, dataloader: DataLoader) -> tuple[float, float]:
-    model.eval()
-    epoch_total_loss: float = 0
-    epoch_total_acc: float = 0
-    with t.no_grad():
-        for prbt, kmbt in dataloader:
-            pred_kmbt: t.Tensor = model(prbt)
-            epoch_total_loss += F.binary_cross_entropy(pred_kmbt, kmbt.to(model.device)).item()
-            epoch_total_acc += binary_accuracy(pred_kmbt.squeeze(), kmbt.to(model.device).squeeze()).item()
-    return epoch_total_loss / len(dataloader), epoch_total_acc / len(dataloader)
-
-
 def run(**kwargs: Any) -> None:
     hps: HyperParams = setup_hyperparams(**kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
     train_dataloader, test_dataloader = setup_dataloaders(hps)
     model: KeyDiscNet = KeyDiscNet(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
-    train_losses, train_accs, test_losses, test_accs = train_test_loop(
-        model, opt, train_dataloader, test_dataloader, hps.train_epochs
-    )
+    trainer: Trainer = Trainer(model, opt, hps.train_epochs,
+                               train_dataloader=train_dataloader, test_dataloader=test_dataloader,
+                               criterion_loss=F.binary_cross_entropy, criterion_acc=binary_accuracy)
+    train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs)
 
 if __name__ == "__main__":
