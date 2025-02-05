@@ -102,7 +102,7 @@ class MIDIChoraleDatset(Dataset):
             pr_alt: PianoRoll = self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
             return (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]), t.Tensor([self.key_modes[index]])) if self.is_return_key_mode \
-                   else (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]))
+                   else (self.onehot(pr_sop[start:end]), self.onehot(pr_alt[start:end]))
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
@@ -130,6 +130,10 @@ class MIDIChoraleDatset(Dataset):
         else:
             assert False, f"Unexpected method of data sequence extraction."
         return start, end
+
+    def onehot(self, pr: PianoRoll) -> PianoRollTensor:
+        is_rest: np.ndarray = np.expand_dims(1 - np.sum(pr, axis=1), axis=1)
+        return t.Tensor(np.concatenate([pr, is_rest], axis=1))
 
     def __len__(self) -> int:
         return len(self.key_modes)
