@@ -39,7 +39,7 @@ class MIDIChoraleDatset(Dataset):
                 self.prs.append(prs_dct["whole"])
             self.key_modes.append(key_mode)
 
-        print(f"Load dataset from '{hps.data_path}'.")
+        print(f"Load dataset with {len(self.key_modes)} samples from '{hps.data_path}'.")
 
     def load_midi_file(self, filename: str, is_relative_pitch: bool, resolution: int, \
                        note_low: int, note_high: int) -> tuple[dict[str, PianoRoll], int] | tuple[None, None]:
@@ -91,7 +91,7 @@ class MIDIChoraleDatset(Dataset):
                     note.pitch -= key_number % N_KEY_CLASS
         return midi
 
-    def midi_to_pianoroll(self, midi: pm.PrettyMIDI|pm.Instrument, 
+    def midi_to_pianoroll(self, midi: pm.PrettyMIDI|pm.Instrument,
                           tempo: int, resolution: int, note_low: int, note_high: int) -> PianoRoll:
         # tempo: beats per minute = 4th-notes per 60 seconds
         # -> tempo/60: sample same number of times as 4th-notes per second
@@ -101,14 +101,13 @@ class MIDIChoraleDatset(Dataset):
             pr = np.concatenate([pr, np.zeros((pr.shape[0], self.sequence_length-pr.shape[1]))], axis=1)
         return np.where(pr[note_low:note_high] <= 0, 0, 1).T
 
-    def __getitem__(self, index: int) -> tuple[PianoRollTensor, PianoRollTensor, t.Tensor] | tuple[PianoRollTensor, PianoRollTensor] \
+    def __getitem__(self, index: int) -> tuple[PianoRollTensor, NoteSequenceTensor, t.Tensor] \
                                        | tuple[PianoRollTensor, t.Tensor] | PianoRollTensor:
         if self.is_sep_part:
             pr_sop: PianoRoll = self.prs_sop[index]
             pr_alt: PianoRoll = self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
-            return (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]), t.Tensor([self.key_modes[index]])) if self.is_return_key_mode \
-                   else (self.onehot(pr_sop[start:end]), self.numerical(pr_alt[start:end]))
+            return self.onehot(pr_sop[start:end]), self.numerical(pr_alt[start:end])
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
@@ -141,8 +140,8 @@ class MIDIChoraleDatset(Dataset):
         is_rest: np.ndarray = np.expand_dims(1 - np.sum(pr, axis=1), axis=1)
         return t.Tensor(np.concatenate([pr, is_rest], axis=1))
 
-    def numerical(self, pr: PianoRoll) -> PianoRollTensor:
-        return t.argmax(t.Tensor(pr), dim=1)
+    def numerical(self, pr: PianoRoll) -> NoteSequenceTensor:
+        return t.argmax(self.onehot(pr), dim=1)
 
     def __len__(self) -> int:
         return len(self.key_modes)
@@ -151,10 +150,12 @@ class MIDIChoraleDatset(Dataset):
 def setup_dataloaders(hps: HyperParams) -> tuple[DataLoader, DataLoader] | DataLoader:
     dataset: Dataset = MIDIChoraleDatset(hps)
 
-    assert 0 <= hps.data_train_test_split <= 1, f"Invalid train:test split rate; '{hps.data_train_test_split}' must be in [0, 1]."
+    assert 0 <= hps.data_train_test_split <= 1, \
+        f"Invalid train:test split rate; '{hps.data_train_test_split}' must be in [0, 1]."
     n_data: int = len(dataset)
     n_train_data: int = int(hps.data_train_test_split * n_data)
     n_test_data: int = n_data - n_train_data
+    print(f"Split the dataset into training data ({n_train_data} samples) and test data ({n_test_data} samples).")
 
     train_dataset, test_dataset = random_split(dataset, [n_train_data, n_test_data])
     train_dataloader: DataLoader = DataLoader(train_dataset, batch_size=hps.data_batch_size, shuffle=True)

@@ -51,14 +51,14 @@ class Trainer:
         self.model.train()
         epoch_total_loss: float = 0
         epoch_total_acc: float = 0
-        for prbt, kmbt in self.train_dataloader:
+        for xs, ts in self.train_dataloader:
             self.opt.zero_grad()
-            pred_kmbt: t.Tensor = self.model(prbt)
-            kmbt = kmbt.to(self.model.device)
-            loss: t.Tensor = self.criterion_loss(pred_kmbt, kmbt)
+            ys: t.Tensor = self.model(xs)
+            ts = ts.to(self.model.device)
+            loss: t.Tensor = self.criterion_loss(ys, ts)
             loss.backward()
             epoch_total_loss += loss.item()
-            epoch_total_acc += self.criterion_acc(pred_kmbt, kmbt).item()
+            epoch_total_acc += self.criterion_acc(ys, ts).item()
             self.opt.step()
         return epoch_total_loss / len(self.train_dataloader), epoch_total_acc / len(self.train_dataloader)
 
@@ -68,9 +68,9 @@ class Trainer:
         epoch_total_loss: float = 0
         epoch_total_acc: float = 0
         with t.no_grad():
-            for prbt, kmbt in self.test_dataloader:
-                pred_kmbt: t.Tensor = self.model(prbt)
-                kmbt = kmbt.to(self.model.device)
-                epoch_total_loss += self.criterion_loss(pred_kmbt, kmbt).item()
-                epoch_total_acc += self.criterion_acc(pred_kmbt, kmbt).item()
+            for xs, ts in self.test_dataloader:
+                ys: t.Tensor = self.model(xs)
+                ts = ts.to(self.model.device)
+                epoch_total_loss += self.criterion_loss(ys, ts).item()
+                epoch_total_acc += self.criterion_acc(ys, ts).item()
         return epoch_total_loss / len(self.test_dataloader), epoch_total_acc / len(self.test_dataloader)

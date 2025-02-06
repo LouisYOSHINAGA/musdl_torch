@@ -6,6 +6,7 @@ PianoRoll: TypeAlias = np.ndarray  # (time, note)
 PianoRolls: TypeAlias = list[PianoRoll]  # [(time, note)]
 PianoRollTensor: TypeAlias = t.Tensor  # (time, note)
 PianoRollBatchTensor: TypeAlias = t.Tensor  # (batch, time, note)
+NoteSequenceTensor: TypeAlias = t.Tensor  # (time, )
 
 TrainMetricLog: TypeAlias = list[float]
 
