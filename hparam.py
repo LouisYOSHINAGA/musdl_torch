@@ -24,6 +24,8 @@ default_hps = HyperParams(
     data_is_relative_pitch=False,
     data_resolution_nth_note=8,
     data_length_bars=8,
+    data_note_low=36,
+    data_note_high=84,
     data_extract_method="head",
     data_is_return_key_mode=False,
     data_batch_size=32,
@@ -31,6 +33,12 @@ default_hps = HyperParams(
     data_verbose=False,
 
     kdn_hidden_dims=[6, ],
+
+    hrm_rnn_type="rnn",
+    hrm_rnn_hidden_size=128,
+    hrm_rnn_num_layers=1,
+    hrm_rnn_bidirectional=False,
+    hrm_rnn_dropout=0.0,
 
     train_lr=0.001,
     train_epochs=1000,

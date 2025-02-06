@@ -34,17 +34,25 @@ class KeyDiscNet(nn.Module):
         return prbowbt
 
     def forward(self, prbt: PianoRollBatchTensor) -> t.Tensor:
-        return self.kdnet(self.preprocess(prbt).to(self.device))  # (batch, ismaj)
+        return self.kdnet(self.preprocess(prbt).to(self.device)).squeeze()  # (batch, )
 
+
+def squeezed_binary_cross_entropy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
+    return F.cross_entropy(input, target.squeeze())
+
+def squeezed_binary_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
+    return binary_accuracy(input, target.squeeze())
 
 def run(**kwargs: Any) -> None:
     hps: HyperParams = setup_hyperparams(**kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
     train_dataloader, test_dataloader = setup_dataloaders(hps)
     model: KeyDiscNet = KeyDiscNet(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
-    trainer: Trainer = Trainer(model, opt, hps.train_epochs,
-                               train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-                               criterion_loss=F.binary_cross_entropy, criterion_acc=binary_accuracy)
+    trainer: Trainer = Trainer(
+        model, opt, hps.train_epochs,
+        train_dataloader=train_dataloader, test_dataloader=test_dataloader,
+        criterion_loss=squeezed_binary_cross_entropy, criterion_acc=squeezed_binary_accuracy
+    )
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs)
 

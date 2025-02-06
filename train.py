@@ -58,7 +58,7 @@ class Trainer:
             loss: t.Tensor = self.criterion_loss(pred_kmbt, kmbt)
             loss.backward()
             epoch_total_loss += loss.item()
-            epoch_total_acc += self.criterion_acc(pred_kmbt.squeeze(), kmbt.squeeze()).item()
+            epoch_total_acc += self.criterion_acc(pred_kmbt, kmbt).item()
             self.opt.step()
         return epoch_total_loss / len(self.train_dataloader), epoch_total_acc / len(self.train_dataloader)
 
@@ -72,5 +72,5 @@ class Trainer:
                 pred_kmbt: t.Tensor = self.model(prbt)
                 kmbt = kmbt.to(self.model.device)
                 epoch_total_loss += self.criterion_loss(pred_kmbt, kmbt).item()
-                epoch_total_acc += self.criterion_acc(pred_kmbt.squeeze(), kmbt.squeeze()).item()
+                epoch_total_acc += self.criterion_acc(pred_kmbt, kmbt).item()
         return epoch_total_loss / len(self.test_dataloader), epoch_total_acc / len(self.test_dataloader)

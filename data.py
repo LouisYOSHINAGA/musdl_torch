@@ -27,7 +27,8 @@ class MIDIChoraleDatset(Dataset):
 
         for f in glob.glob(f"{hps.data_path}/*{hps.data_ext}"):
             prs_dct, key_mode = self.load_midi_file(
-                f, is_relative_pitch=hps.data_is_relative_pitch, resolution=hps.data_resolution_nth_note
+                f, is_relative_pitch=hps.data_is_relative_pitch, resolution=hps.data_resolution_nth_note,
+                note_low=hps.data_note_low, note_high=hps.data_note_high
             )
             if prs_dct is None or key_mode is None:
                 continue
@@ -40,9 +41,8 @@ class MIDIChoraleDatset(Dataset):
 
         print(f"Load dataset from '{hps.data_path}'.")
 
-    def load_midi_file(self, filename: str, is_relative_pitch: bool, resolution: int) \
-        -> tuple[dict[str, PianoRoll], int] | tuple[None, None]:
-
+    def load_midi_file(self, filename: str, is_relative_pitch: bool, resolution: int, \
+                       note_low: int, note_high: int) -> tuple[dict[str, PianoRoll], int] | tuple[None, None]:
         if not os.path.isfile(filename):
             return None, None
         midi: pm.PrettyMIDI = pm.PrettyMIDI(filename)
@@ -67,10 +67,16 @@ class MIDIChoraleDatset(Dataset):
             midi = self.transpose(midi, key_number)
 
         prs_dct: dict[str, PianoRoll] = {
-            'sop': self.midi_to_pianoroll(midi.instruments[0], tempo=tempo, resolution=resolution),
-            'alt': self.midi_to_pianoroll(midi.instruments[1], tempo=tempo, resolution=resolution)
+            'sop': self.midi_to_pianoroll(
+                midi.instruments[0], tempo=tempo, resolution=resolution, note_low=note_low, note_high=note_high
+            ),
+            'alt': self.midi_to_pianoroll(
+                midi.instruments[1], tempo=tempo, resolution=resolution, note_low=note_low, note_high=note_high
+            )
         } if self.is_sep_part else {
-            'whole': self.midi_to_pianoroll(midi, tempo=tempo, resolution=resolution)
+            'whole': self.midi_to_pianoroll(
+                midi, tempo=tempo, resolution=resolution, note_low=note_low, note_high=note_high
+            )
         }
         return prs_dct, key_mode
 
@@ -85,8 +91,8 @@ class MIDIChoraleDatset(Dataset):
                     note.pitch -= key_number % N_KEY_CLASS
         return midi
 
-    def midi_to_pianoroll(self, midi: pm.PrettyMIDI|pm.Instrument, tempo: int, resolution: int,
-                          note_low: int =36, note_high: int=84) -> PianoRoll:
+    def midi_to_pianoroll(self, midi: pm.PrettyMIDI|pm.Instrument, 
+                          tempo: int, resolution: int, note_low: int, note_high: int) -> PianoRoll:
         # tempo: beats per minute = 4th-notes per 60 seconds
         # -> tempo/60: sample same number of times as 4th-notes per second
         # -> (N/4)*tempo/60: sample same number of times as Nth-notes per second
@@ -102,7 +108,7 @@ class MIDIChoraleDatset(Dataset):
             pr_alt: PianoRoll = self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
             return (t.Tensor(pr_sop[start:end]), t.Tensor(pr_alt[start:end]), t.Tensor([self.key_modes[index]])) if self.is_return_key_mode \
-                   else (self.onehot(pr_sop[start:end]), self.onehot(pr_alt[start:end]))
+                   else (self.onehot(pr_sop[start:end]), self.numerical(pr_alt[start:end]))
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
@@ -134,6 +140,9 @@ class MIDIChoraleDatset(Dataset):
     def onehot(self, pr: PianoRoll) -> PianoRollTensor:
         is_rest: np.ndarray = np.expand_dims(1 - np.sum(pr, axis=1), axis=1)
         return t.Tensor(np.concatenate([pr, is_rest], axis=1))
+
+    def numerical(self, pr: PianoRoll) -> PianoRollTensor:
+        return t.argmax(t.Tensor(pr), dim=1)
 
     def __len__(self) -> int:
         return len(self.key_modes)
