@@ -42,6 +42,10 @@ default_hps = HyperParams(
 
     train_lr=0.001,
     train_epochs=1000,
+    train_save_period=1000,
+    train_load_path=None,
+    train_save_path=None,
+    train_verbose=False,
 )
 
 

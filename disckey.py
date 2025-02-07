@@ -49,7 +49,7 @@ def run(**kwargs: Any) -> None:
     model: KeyDiscNet = KeyDiscNet(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
     trainer: Trainer = Trainer(
-        model, opt, hps.train_epochs,
+        model, opt, hps,
         train_dataloader=train_dataloader, test_dataloader=test_dataloader,
         criterion_loss=squeezed_binary_cross_entropy, criterion_acc=squeezed_binary_accuracy
     )

@@ -53,7 +53,7 @@ def run(**kwargs: Any) -> None:
     train_dataloader, test_dataloader = setup_dataloaders(hps)
     model: HarmonyRNN =  HarmonyRNN(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
-    trainer: Trainer = Trainer(model, opt, hps.train_epochs,
+    trainer: Trainer = Trainer(model, opt, hps,
                                train_dataloader=train_dataloader, test_dataloader=test_dataloader,
                                criterion_loss=cross_entropy_for_sequence_classify,
                                criterion_acc=multiclass_accuracy_for_sequence_classify)
