@@ -7,6 +7,7 @@ PianoRolls: TypeAlias = list[PianoRoll]  # [(time, note)]
 PianoRollTensor: TypeAlias = t.Tensor  # (time, note)
 PianoRollBatchTensor: TypeAlias = t.Tensor  # (batch, time, note)
 NoteSequenceTensor: TypeAlias = t.Tensor  # (time, )
+NoteSequenceBatchTensor: TypeAlias = t.Tensor  # (batch, time)
 
 TrainMetricLog: TypeAlias = list[float]
 

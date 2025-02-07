@@ -175,5 +175,6 @@ if __name__ == "__main__":
     train_dataloader = setup_dataloaders(hps)
     prbt: PianoRollBatchTensor = next(iter(train_dataloader))  # type: ignore
 
-    plot_pianoroll(prbt[0], n_bars=hps.data_length_bars)
+    plot_pianoroll(prbt[0], n_bars=hps.data_length_bars,
+                   note_low=hps.data_note_low, note_high=hps.data_note_high)
     print(f"Batch size = {prbt.shape}")

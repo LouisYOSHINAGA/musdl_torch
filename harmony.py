@@ -9,7 +9,7 @@ from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from data import setup_dataloaders
 from train import Trainer
-from util import plot_train_log
+from util import plot_train_log, plot_pianorolls
 
 
 class HarmonyRNN(nn.Module):
@@ -36,6 +36,11 @@ class HarmonyRNN(nn.Module):
         ys, _  = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
+    def inference(self, prbt: PianoRollBatchTensor) -> NoteSequenceBatchTensor:
+        ys, _ = self.rnn(prbt.to(self.device))
+        ys = self.fc(ys)  # (batch, time, note)
+        return F.one_hot(t.argmax(ys, dim=-1), num_classes=self.n_note_class)  # (batch, time) -> (batch, time, note)
+
 
 def cross_entropy_for_sequence_classify(input: t.Tensor, target: t.Tensor) -> t.Tensor:
     return F.cross_entropy(input, target.reshape(-1))
@@ -54,6 +59,11 @@ def run(**kwargs: Any) -> None:
                                criterion_acc=multiclass_accuracy_for_sequence_classify)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs)
+
+    xs, _ = next(iter(test_dataloader))
+    ys: PianoRollBatchTensor = trainer.inference(xs)
+    plot_pianorolls(xs[0, :, :-1], ys[0, :, :-1], n_bars=hps.data_length_bars,
+                    note_low=hps.data_note_low, note_high=hps.data_note_high)
 
 if __name__ == "__main__":
     fire.Fire(run)

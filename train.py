@@ -74,3 +74,6 @@ class Trainer:
                 epoch_total_loss += self.criterion_loss(ys, ts).item()
                 epoch_total_acc += self.criterion_acc(ys, ts).item()
         return epoch_total_loss / len(self.test_dataloader), epoch_total_acc / len(self.test_dataloader)
+
+    def inference(self, xs: t.Tensor) -> t.Tensor:
+        return self.model.inference(xs)
