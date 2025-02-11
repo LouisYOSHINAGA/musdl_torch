@@ -3,4 +3,4 @@ __pycache__/
 *.mid
 *.wav
 dataset/
-log/
+out/

@@ -1,6 +1,5 @@
 import os
 from tqdm import tqdm
-from datetime import datetime, timedelta, timezone
 import torch as t
 import torch.nn as nn
 import torch.optim as optim
@@ -8,6 +7,7 @@ from typing import Callable, Any
 from typedef import *
 from hparam import HyperParams
 from data import DataLoader
+from util import get_time
 
 CriterionFn: TypeAlias = Callable[[PianoRollBatchTensor, t.Tensor], t.Tensor] \
                        | Callable[[PianoRollBatchTensor, PianoRollBatchTensor], t.Tensor]
@@ -17,7 +17,7 @@ class Trainer:
     def __init__(self, model: nn.Module, opt: optim.Optimizer, hps: HyperParams,
                  train_dataloader: DataLoader, criterion_loss: CriterionFn, criterion_acc: CriterionFn,
                  test_dataloader: DataLoader|None =None) -> None:
-        self.set_time()
+        self.time: str = get_time()
         self.verbose: bool = hps.train_verbose
 
         self.model: nn.Module = model
@@ -38,7 +38,8 @@ class Trainer:
         self.load(hps.train_load_path)
 
         self.save_period: int = hps.train_save_period
-        self.set_path(hps.train_save_path)
+        self.save_path: str = hps.train_save_path if hps.train_save_path is not None \
+                              else f"{hps.general_output_path}/model_weights_{self.time}.pth.tar"
 
     def __call__(self) -> tuple[TrainMetricLog, TrainMetricLog, TrainMetricLog, TrainMetricLog]:
         for epoch in tqdm(range(self.start_epoch, self.start_epoch+self.epochs), desc="training progress"):
@@ -121,18 +122,6 @@ class Trainer:
         }
         t.save(state_dict, self.save_path)
         self.vprint(f"The model weights are saved in '{self.save_path}'.")
-
-    def set_path(self, path: str|None) -> None:
-        if path is not None:
-            self.save_path = path
-        else:
-            _default_log_dir: str = "log"
-            if not os.path.isdir(_default_log_dir):
-                os.mkdir(_default_log_dir)
-            self.save_path: str = f"{_default_log_dir}/model_weights_{self.time}.pth.tar"
-
-    def set_time(self, format: str ="%Y%m%d_%H%M%S") -> None:
-        self.time: str = datetime.now(timezone(timedelta(hours=9), "JST")).strftime(format)
 
     def vprint(self, msg: str) -> None:
         if self.verbose:

@@ -43,6 +43,7 @@ def squeezed_binary_cross_entropy(input: t.Tensor, target: t.Tensor) -> t.Tensor
 def squeezed_binary_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
     return binary_accuracy(input, target.squeeze())
 
+
 def run(**kwargs: Any) -> None:
     hps: HyperParams = setup_hyperparams(**kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
     train_dataloader, test_dataloader = setup_dataloaders(hps)

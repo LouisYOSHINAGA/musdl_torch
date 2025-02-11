@@ -17,6 +17,7 @@ class HyperParams(dict):
 
 default_hps = HyperParams(
     general_device="cpu",
+    general_output_path="out",
 
     data_path="dataset",
     data_ext=".mid",

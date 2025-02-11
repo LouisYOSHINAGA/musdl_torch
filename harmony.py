@@ -9,7 +9,7 @@ from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from data import setup_dataloaders
 from train import Trainer
-from util import plot_train_log, plot_pianorolls
+from util import plot_train_log, plot_pianorolls, save_midi
 
 
 class HarmonyRNN(nn.Module):
@@ -48,6 +48,7 @@ def cross_entropy_for_sequence_classify(input: t.Tensor, target: t.Tensor) -> t.
 def multiclass_accuracy_for_sequence_classify(input: t.Tensor, target: t.Tensor) -> t.Tensor:
     return multiclass_accuracy(input, target.reshape(-1))
 
+
 def run(**kwargs: Any) -> None:
     hps: HyperParams = setup_hyperparams(**kwargs, data_is_sep_part=True)
     train_dataloader, test_dataloader = setup_dataloaders(hps)
@@ -62,7 +63,11 @@ def run(**kwargs: Any) -> None:
 
     xs, _ = next(iter(test_dataloader))
     ys: PianoRollBatchTensor = trainer.inference(xs)
-    plot_pianorolls(xs[0, :, :-1], ys[0, :, :-1], n_bars=hps.data_length_bars,
+
+    x: PianoRollTensor = xs[0, :, :-1]
+    y: PianoRollTensor = ys[0, :, :-1]
+    save_midi([x, y], dirname=hps.general_output_path, note_offset=hps.data_note_low)
+    plot_pianorolls(x, y, n_bars=hps.data_length_bars,
                     note_low=hps.data_note_low, note_high=hps.data_note_high)
 
 if __name__ == "__main__":
