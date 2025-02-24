@@ -3,10 +3,17 @@ from datetime import datetime, timedelta, timezone
 import pretty_midi as pm
 import soundfile as sf
 import matplotlib.pyplot as plt
+import torch.nn as nn
 from torch.utils.data import DataLoader
-from typing import Callable
+from typing import Any, Callable
 from typedef import *
 from hparam import HyperParams
+
+
+def rnn_general(rnn_type: str, **rnn_kwargs: Any) -> nn.RNNBase:
+    rnns: dict[str, type[nn.RNNBase]] = {'rnn': nn.RNN, 'lstm': nn.LSTM, 'gru': nn.GRU}
+    assert rnn_type in rnns.keys(), f"Unexpected RNN type '{rnn_type}'. Available RNN type: {list(rnns.keys())}."
+    return rnns[rnn_type](**rnn_kwargs)
 
 
 class LogTimeManager:

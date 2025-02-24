@@ -9,7 +9,7 @@ from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from data import setup_dataloaders
 from train import Trainer
-from util import plot_train_log, plot_save_midi
+from util import rnn_general, plot_train_log, plot_save_midi
 
 
 class Encoder(nn.Module):
@@ -17,10 +17,8 @@ class Encoder(nn.Module):
         super().__init__()
         self.device: str = hps.general_device
 
-        assert hps.cmp_enc_rnn_type in ["rnn", "lstm", "gru"], f"Unexpected RNN type '{hps.cmp_enc_rnn_type}'."
-        self.rnn: nn.RNNBase = {
-            'rnn': nn.RNN, 'lstm': nn.LSTM, 'gru': nn.GRU
-        }[hps.hrm_rnn_type](
+        self.rnn: nn.RNNBase = rnn_general(
+            rnn_type=hps.cmp_enc_rnn_type,
             input_size=hps.data_note_high-hps.data_note_low+1,  # [note_low, note_high) \cup {rest}
             hidden_size=hps.cmp_enc_rnn_hidden_size,
             num_layers=hps.cmp_enc_num_layers,
@@ -40,13 +38,11 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, hps: HyperParams) -> None:
         super().__init__()
-
         self.sequence_length: int = hps.data_resolution_nth_note * hps.data_length_bars
         self.n_note_class: int = hps.data_note_high - hps.data_note_low + 1  # [note_low, note_high) \cup {rest}
-        assert hps.cmp_enc_rnn_type in ["rnn", "lstm", "gru"], f"Unexpected RNN type '{hps.cmp_enc_rnn_type}'."
-        self.rnn: nn.RNNBase = {
-            'rnn': nn.RNN, 'lstm': nn.LSTM, 'gru': nn.GRU
-        }[hps.hrm_rnn_type](
+
+        self.rnn: nn.RNNBase = rnn_general(
+            rnn_type=hps.cmp_dec_rnn_type,
             input_size=hps.cmp_hidden_size,
             hidden_size=hps.cmp_dec_rnn_hidden_size,
             num_layers=hps.cmp_dec_num_layers,

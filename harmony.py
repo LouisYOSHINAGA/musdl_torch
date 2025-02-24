@@ -9,19 +9,17 @@ from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from data import setup_dataloaders
 from train import Trainer
-from util import plot_train_log, plot_pianorolls, save_midi
+from util import rnn_general, plot_train_log, plot_pianorolls, save_midi
 
 
 class HarmonyRNN(nn.Module):
     def __init__(self, hps: HyperParams) -> None:
         super().__init__()
         self.device: str = hps.general_device
-
         self.n_note_class: int = hps.data_note_high - hps.data_note_low + 1  # [note_low, note_high) \cup {rest}
-        assert hps.hrm_rnn_type in ["rnn", "lstm", "gru"], f"Unexpected RNN type '{hps.hrm_rnn_type}'."
-        self.rnn: nn.RNNBase = {
-            'rnn': nn.RNN, 'lstm': nn.LSTM, 'gru': nn.GRU
-        }[hps.hrm_rnn_type](
+
+        self.rnn: nn.RNNBase = rnn_general(
+            rnn_type=hps.hrm_rnn_type,
             input_size=self.n_note_class,
             hidden_size=hps.hrm_rnn_hidden_size,
             num_layers=hps.hrm_rnn_num_layers,
