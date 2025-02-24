@@ -96,11 +96,12 @@ def save_midi(prl: list[PianoRoll|PianoRollTensor],
     midi.write(f"{save_path}{midext}")
     sf.write(f"{save_path}{wavext}", midi.synthesize(fs=sr), samplerate=sr)
 
-def plot_save_midi(dataloader: DataLoader, inference_fn: Callable[[t.Tensor], t.Tensor], hps: HyperParams) -> None:
+def plot_save_midi(dataloader: DataLoader, inference_fn: Callable[[t.Tensor], t.Tensor],
+                   hps: HyperParams, filename: str|None =None) -> None:
     xs, _ = next(iter(dataloader))
     ys: PianoRollBatchTensor = inference_fn(xs)
     x: PianoRollTensor = xs[0, :, :-1]  # get first data, remove rest
     y: PianoRollTensor = ys[0, :, :-1]  # get first data, remove rest
-    save_midi([x, y], dirname=hps.general_output_path, note_offset=hps.data_note_low)
+    save_midi([x, y], dirname=hps.general_output_path, filename=filename, note_offset=hps.data_note_low)
     plot_pianorolls(x, y, n_bars=hps.data_length_bars,
                     note_low=hps.data_note_low, note_high=hps.data_note_high)

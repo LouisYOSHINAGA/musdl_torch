@@ -9,7 +9,7 @@ from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from data import setup_dataloaders
 from train import Trainer
-from util import rnn_general, plot_train_log, plot_save_midi
+from util import rnn_general, get_time, plot_train_log, plot_save_midi
 
 
 class Encoder(nn.Module):
@@ -98,8 +98,8 @@ def run(**kwargs: Any) -> None:
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs)
 
-    plot_save_midi(train_dataloader, trainer.inference, hps)
-    plot_save_midi(test_dataloader, trainer.inference, hps)
+    plot_save_midi(train_dataloader, trainer.inference, hps, filename=f"recons_train_{get_time()}")
+    plot_save_midi(test_dataloader, trainer.inference, hps, filename=f"recons_test_{get_time()}")
 
 if __name__ == "__main__":
     fire.Fire(run)
