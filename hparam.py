@@ -41,6 +41,18 @@ default_hps = HyperParams(
     hrm_rnn_bidirectional=False,
     hrm_rnn_dropout=0.0,
 
+    cmp_enc_rnn_type="rnn",
+    cmp_enc_rnn_hidden_size=1024,
+    cmp_enc_num_layers=1,
+    cmp_enc_bidirectional=False,
+    cmp_enc_dropout=0.0,
+    cmp_hidden_size=16,
+    cmp_dec_rnn_type="rnn",
+    cmp_dec_rnn_hidden_size=1024,
+    cmp_dec_num_layers=1,
+    cmp_dec_bidirectional=False,
+    cmp_dec_dropout=0.0,
+
     train_lr=0.001,
     train_epochs=1000,
     train_save_period=1000,

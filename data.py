@@ -147,11 +147,11 @@ class MIDIChoraleDatset(Dataset):
         return len(self.key_modes)
 
 
-def setup_dataloaders(hps: HyperParams) -> tuple[DataLoader, DataLoader] | DataLoader:
+def setup_dataloaders(hps: HyperParams) -> tuple[DataLoader, DataLoader]:
     dataset: Dataset = MIDIChoraleDatset(hps)
 
-    assert 0 <= hps.data_train_test_split <= 1, \
-        f"Invalid train:test split rate; '{hps.data_train_test_split}' must be in [0, 1]."
+    assert 0 <= hps.data_train_test_split < 1, \
+        f"Invalid train:test split rate; '{hps.data_train_test_split}' must be in [0, 1)."
     n_data: int = len(dataset)
     n_train_data: int = int(hps.data_train_test_split * n_data)
     n_test_data: int = n_data - n_train_data
@@ -160,7 +160,7 @@ def setup_dataloaders(hps: HyperParams) -> tuple[DataLoader, DataLoader] | DataL
     train_dataset, test_dataset = random_split(dataset, [n_train_data, n_test_data])
     train_dataloader: DataLoader = DataLoader(train_dataset, batch_size=hps.data_batch_size, shuffle=True)
     test_dataloader: DataLoader = DataLoader(test_dataset, batch_size=hps.data_batch_size, shuffle=False)
-    return (train_dataloader, test_dataloader) if hps.data_train_test_split != 1 else train_dataloader
+    return train_dataloader, test_dataloader
 
 
 if __name__ == "__main__":
