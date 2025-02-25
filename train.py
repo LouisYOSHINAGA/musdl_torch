@@ -9,8 +9,8 @@ from hparam import HyperParams
 from data import DataLoader
 from util import get_time
 
-CriterionFn: TypeAlias = Callable[[PianoRollBatchTensor, t.Tensor], t.Tensor] \
-                       | Callable[[PianoRollBatchTensor, PianoRollBatchTensor], t.Tensor]
+CriterionFn: TypeAlias = Callable[[t.Tensor, t.Tensor], t.Tensor] \
+                       | Callable[[tuple[t.Tensor, t.Tensor], t.Tensor], t.Tensor]
 
 
 class Trainer:
@@ -63,7 +63,7 @@ class Trainer:
         epoch_total_acc: float = 0
         for xs, ts in self.train_dataloader:
             self.opt.zero_grad()
-            ys: t.Tensor = self.model(xs)
+            ys = self.model(xs)
             ts = ts.to(self.model.device)
             loss: t.Tensor = self.criterion_loss(ys, ts)
             loss.backward()
@@ -80,7 +80,7 @@ class Trainer:
         epoch_total_acc: float = 0
         with t.no_grad():
             for xs, ts in self.test_dataloader:
-                ys: t.Tensor = self.model(xs)
+                ys = self.model(xs)
                 ts = ts.to(self.model.device)
                 epoch_total_loss += self.criterion_loss(ys, ts).item()
                 epoch_total_acc += self.criterion_acc(ys, ts).item()
