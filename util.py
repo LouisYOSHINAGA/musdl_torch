@@ -16,24 +16,20 @@ def rnn_general(rnn_type: str, **rnn_kwargs: Any) -> nn.RNNBase:
     return rnns[rnn_type](**rnn_kwargs)
 
 
-class LogTimeManager:
-    def __init__(self, fmt: str ="%Y%m%d_%H%M%S") -> None:
-        if not hasattr(LogTimeManager, "time"):
-            self.reset(fmt)
+class Logger:
+    def __init__(self, hps: HyperParams) -> None:
+        self.init_time()
+        self.init_outdir(hps.general_output_path)
 
-    @classmethod
-    def reset(cls, fmt: str|None =None) -> str:
-        if fmt is not None:
-            cls.fmt: str = fmt
-        cls.time: str = datetime.now(timezone(timedelta(hours=9), "JST")).strftime(cls.fmt)
-        return cls.time
+    def init_time(self, fmt: str ="%Y%m%d_%H%M%S") -> None:
+        self.time: str = datetime.now(timezone(timedelta(hours=9), "JST")).strftime(fmt)
 
-    @classmethod
-    def get(cls) -> str:
-        return cls.time
-
-def get_time() -> str:
-    return LogTimeManager().get()
+    def init_outdir(self, outdir: str) -> None:
+        assert os.path.isdir(outdir), f"Target directory '{outdir}' does not exist."
+        self.outdir: str = f"{outdir}/out_{self.time}"
+        if not os.path.isdir(self.outdir):
+            os.makedirs(self.outdir)
+            print(f"Output directory '{self.outdir}' is newly made.")
 
 
 def plot_pianoroll(pr: PianoRoll|PianoRollTensor, n_bars: int,
@@ -78,11 +74,9 @@ def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
     plt.tight_layout()
     plt.show()
 
-def save_midi(prl: list[PianoRoll|PianoRollTensor],
-              dirname: str, filename: str|None =None, midext: str =".mid", wavext: str =".wav",
-              note_offset: int =0, resolution: int =480, sr: int =44100) -> None:
-    assert os.path.isdir(dirname), f"Target directory '{dirname}' does not exist."
-    save_path: str = f"{dirname}/out_{get_time()}" if filename is None else f"{dirname}/{filename}"
+def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, filename: str|None =None,
+              midext: str =".mid", wavext: str =".wav", note_offset: int =0, resolution: int =480, sr: int =44100) -> None:
+    save_path: str = f"{logger.outdir}/midi_{logger.time}" if filename is None else f"{logger.outdir}/{filename}"
 
     midi: pm.PrettyMIDI = pm.PrettyMIDI(resolution=resolution)
     for pr in prl:
@@ -96,12 +90,12 @@ def save_midi(prl: list[PianoRoll|PianoRollTensor],
     midi.write(f"{save_path}{midext}")
     sf.write(f"{save_path}{wavext}", midi.synthesize(fs=sr), samplerate=sr)
 
-def plot_save_midi(dataloader: DataLoader, inference_fn: Callable[[t.Tensor], t.Tensor],
+def plot_save_midi(dataloader: DataLoader, inference_fn: Callable[[t.Tensor], t.Tensor], logger: Logger,
                    hps: HyperParams, filename: str|None =None) -> None:
     xs, _ = next(iter(dataloader))
     ys: PianoRollBatchTensor = inference_fn(xs)
     x: PianoRollTensor = xs[0, :, :-1]  # get first data, remove rest
     y: PianoRollTensor = ys[0, :, :-1]  # get first data, remove rest
-    save_midi([x, y], dirname=hps.general_output_path, filename=filename, note_offset=hps.data_note_low)
+    save_midi([x, y], logger=logger, filename=filename, note_offset=hps.data_note_low)
     plot_pianorolls(x, y, n_bars=hps.data_length_bars,
                     note_low=hps.data_note_low, note_high=hps.data_note_high)

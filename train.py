@@ -7,7 +7,7 @@ from typing import Callable, Any
 from typedef import *
 from hparam import HyperParams
 from data import DataLoader
-from util import get_time
+from util import Logger
 
 CriterionFn: TypeAlias = Callable[[t.Tensor, t.Tensor], t.Tensor] \
                        | Callable[[tuple[t.Tensor, t.Tensor], t.Tensor], t.Tensor]
@@ -17,7 +17,7 @@ class Trainer:
     def __init__(self, model: nn.Module, opt: optim.Optimizer, hps: HyperParams,
                  train_dataloader: DataLoader, criterion_loss: CriterionFn, criterion_acc: CriterionFn,
                  test_dataloader: DataLoader|None =None) -> None:
-        self.time: str = get_time()
+        self.logger: Logger = Logger(hps)
         self.verbose: bool = hps.train_verbose
 
         self.model: nn.Module = model
@@ -39,7 +39,7 @@ class Trainer:
 
         self.save_period: int = hps.train_save_period
         self.save_path: str = hps.train_save_path if hps.train_save_path is not None \
-                              else f"{hps.general_output_path}/model_weights_{self.time}.pth.tar"
+                              else f"{self.logger.outdir}/model_weights_{self.logger.time}.pth.tar"
 
     def __call__(self) -> tuple[TrainMetricLog, TrainMetricLog, TrainMetricLog, TrainMetricLog]:
         for epoch in tqdm(range(self.start_epoch, self.start_epoch+self.epochs), desc="training progress"):
@@ -122,6 +122,10 @@ class Trainer:
         }
         t.save(state_dict, self.save_path)
         self.vprint(f"The model weights are saved in '{self.save_path}'.")
+
+    @property
+    def time(self) -> str:
+        return self.logger.time
 
     def vprint(self, msg: str) -> None:
         if self.verbose:

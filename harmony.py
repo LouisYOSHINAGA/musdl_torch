@@ -64,7 +64,7 @@ def run(**kwargs: Any) -> None:
 
     x: PianoRollTensor = xs[0, :, :-1]
     y: PianoRollTensor = ys[0, :, :-1]
-    save_midi([x, y], dirname=hps.general_output_path, note_offset=hps.data_note_low)
+    save_midi([x, y], logger=trainer.logger, note_offset=hps.data_note_low)
     plot_pianorolls(x, y, n_bars=hps.data_length_bars,
                     note_low=hps.data_note_low, note_high=hps.data_note_high)
 
