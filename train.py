@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta, timezone
 from tqdm import tqdm
 import torch as t
 import torch.nn as nn
@@ -7,10 +8,25 @@ from typing import Callable, Any
 from typedef import *
 from hparam import HyperParams
 from data import DataLoader
-from util import Logger
 
 CriterionFn: TypeAlias = Callable[[t.Tensor, t.Tensor], t.Tensor] \
                        | Callable[[tuple[t.Tensor, t.Tensor], t.Tensor], t.Tensor]
+
+
+class Logger:
+    def __init__(self, hps: HyperParams) -> None:
+        self.init_time()
+        self.init_outdir(hps.general_output_path)
+
+    def init_time(self, fmt: str ="%Y%m%d_%H%M%S") -> None:
+        self.time: str = datetime.now(timezone(timedelta(hours=9), "JST")).strftime(fmt)
+
+    def init_outdir(self, outdir: str) -> None:
+        assert os.path.isdir(outdir), f"Target directory '{outdir}' does not exist."
+        self.outdir: str = f"{outdir}/out_{self.time}"
+        if not os.path.isdir(self.outdir):
+            os.makedirs(self.outdir)
+            print(f"Output directory '{self.outdir}' is newly made.")
 
 
 class Trainer:
@@ -122,6 +138,10 @@ class Trainer:
         }
         t.save(state_dict, self.save_path)
         self.vprint(f"The model weights are saved in '{self.save_path}'.")
+
+    @property
+    def outdir(self) -> str:
+        return self.logger.outdir
 
     @property
     def time(self) -> str:

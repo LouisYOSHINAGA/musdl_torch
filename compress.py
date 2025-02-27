@@ -91,15 +91,19 @@ def run(**kwargs: Any) -> None:
     train_dataloader, test_dataloader = setup_dataloaders(hps)
     model: AutoEncoder =  AutoEncoder(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
+
     trainer: Trainer = Trainer(model, opt, hps,
                                train_dataloader=train_dataloader, test_dataloader=test_dataloader,
                                criterion_loss=cross_entropy_for_sequence_classify,
                                criterion_acc=multiclass_accuracy_for_sequence_classify)
     train_losses, train_accs, test_losses, test_accs = trainer()
-    plot_train_log(train_losses, train_accs, test_losses, test_accs)
+    plot_train_log(train_losses, train_accs, test_losses, test_accs,
+                   is_save=True, logger=trainer.logger, is_show=True)
 
-    plot_save_midi(train_dataloader, trainer.inference, trainer.logger, hps, filename=f"recons_train_{trainer.time}")
-    plot_save_midi(test_dataloader, trainer.inference, trainer.logger, hps, filename=f"recons_test_{trainer.time}")
+    plot_save_midi(train_dataloader, trainer.inference, trainer.logger, hps,
+                   title="recons_train", is_save=True, is_show=True)
+    plot_save_midi(test_dataloader, trainer.inference, trainer.logger, hps,
+                   title="recons_test", is_save=True, is_show=True)
 
 if __name__ == "__main__":
     fire.Fire(run)

@@ -49,13 +49,14 @@ def run(**kwargs: Any) -> None:
     train_dataloader, test_dataloader = setup_dataloaders(hps)
     model: KeyDiscNet = KeyDiscNet(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
-    trainer: Trainer = Trainer(
-        model, opt, hps,
-        train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-        criterion_loss=squeezed_binary_cross_entropy, criterion_acc=squeezed_binary_accuracy
-    )
+
+    trainer: Trainer = Trainer(model, opt, hps,
+                               train_dataloader=train_dataloader, test_dataloader=test_dataloader,
+                               criterion_loss=squeezed_binary_cross_entropy,
+                               criterion_acc=squeezed_binary_accuracy)
     train_losses, train_accs, test_losses, test_accs = trainer()
-    plot_train_log(train_losses, train_accs, test_losses, test_accs)
+    plot_train_log(train_losses, train_accs, test_losses, test_accs,
+                   is_save=True, logger=trainer.logger, is_show=True)
 
 if __name__ == "__main__":
     fire.Fire(run)

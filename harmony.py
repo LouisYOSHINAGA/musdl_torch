@@ -9,7 +9,7 @@ from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from data import setup_dataloaders
 from train import Trainer
-from util import rnn_general, plot_train_log, plot_pianorolls, save_midi
+from util import rnn_general, plot_train_log, plot_save_midi
 
 
 class HarmonyRNN(nn.Module):
@@ -52,21 +52,17 @@ def run(**kwargs: Any) -> None:
     train_dataloader, test_dataloader = setup_dataloaders(hps)
     model: HarmonyRNN =  HarmonyRNN(hps).to(hps.general_device)
     opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
+
     trainer: Trainer = Trainer(model, opt, hps,
                                train_dataloader=train_dataloader, test_dataloader=test_dataloader,
                                criterion_loss=cross_entropy_for_sequence_classify,
                                criterion_acc=multiclass_accuracy_for_sequence_classify)
     train_losses, train_accs, test_losses, test_accs = trainer()
-    plot_train_log(train_losses, train_accs, test_losses, test_accs)
+    plot_train_log(train_losses, train_accs, test_losses, test_accs,
+                   is_save=True, logger=trainer.logger, is_show=True)
 
-    xs, _ = next(iter(test_dataloader))
-    ys: PianoRollBatchTensor = trainer.inference(xs)
-
-    x: PianoRollTensor = xs[0, :, :-1]
-    y: PianoRollTensor = ys[0, :, :-1]
-    save_midi([x, y], logger=trainer.logger, note_offset=hps.data_note_low)
-    plot_pianorolls(x, y, n_bars=hps.data_length_bars,
-                    note_low=hps.data_note_low, note_high=hps.data_note_high)
+    plot_save_midi(test_dataloader, trainer.inference, trainer.logger, hps,
+                   title="hrm_alt", is_save=True, is_show=True)
 
 if __name__ == "__main__":
     fire.Fire(run)
