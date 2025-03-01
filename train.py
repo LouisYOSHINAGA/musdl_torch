@@ -12,6 +12,8 @@ from data import DataLoader
 CriterionFn: TypeAlias = Callable[[t.Tensor, t.Tensor], t.Tensor] \
                        | Callable[[tuple[t.Tensor, t.Tensor], t.Tensor], t.Tensor]
 
+eps: float = 1e-5
+
 
 class Logger:
     def __init__(self, hps: HyperParams) -> None:
@@ -76,34 +78,39 @@ class Trainer:
     def train(self) -> None:
         self.model.train()
         epoch_total_loss: float = 0
-        epoch_total_acc: float = 0
+        epoch_total_n_cor: int = 0
+        n_data: int = 0
         for xs, ts in self.train_dataloader:
             self.opt.zero_grad()
             ys = self.model(xs)
             ts = ts.to(self.model.device)
             loss: t.Tensor = self.criterion_loss(ys, ts)
             loss.backward()
-            epoch_total_loss += loss.item()
-            epoch_total_acc += self.criterion_acc(ys, ts).item()
             self.opt.step()
-        self.train_losses.append(epoch_total_loss / len(self.train_dataloader))
-        self.train_accs.append(epoch_total_acc / len(self.train_dataloader))
+            epoch_total_loss += loss.item()
+            epoch_total_n_cor += int(len(xs) * self.criterion_acc(ys, ts).item() + eps)
+            n_data += len(xs)
+        self.train_losses.append(epoch_total_loss/n_data)
+        self.train_accs.append(epoch_total_n_cor/n_data)
 
     def test(self) -> None:
         assert self.test_dataloader is not None, f"Test dataloader is not given."
         self.model.eval()
         epoch_total_loss: float = 0
-        epoch_total_acc: float = 0
+        epoch_total_n_cor: int = 0
+        n_data: int = 0
         with t.no_grad():
             for xs, ts in self.test_dataloader:
                 ys = self.model(xs)
                 ts = ts.to(self.model.device)
                 epoch_total_loss += self.criterion_loss(ys, ts).item()
-                epoch_total_acc += self.criterion_acc(ys, ts).item()
-        self.test_losses.append(epoch_total_loss / len(self.test_dataloader))
-        self.test_accs.append(epoch_total_acc / len(self.test_dataloader))
+                epoch_total_n_cor += int(len(xs) * self.criterion_acc(ys, ts).item() + eps)
+                n_data += len(xs)
+        self.test_losses.append(epoch_total_loss/n_data)
+        self.test_accs.append(epoch_total_n_cor/n_data)
 
     def inference(self, xs: t.Tensor) -> t.Tensor:
+        self.model.eval()
         return self.model.inference(xs)
 
     def load(self, path: str|None) -> None:
@@ -118,9 +125,9 @@ class Trainer:
         self.opt.load_state_dict(checkpoint['opt'])
         self.start_epoch = checkpoint['epoch']
         self.train_losses = checkpoint['train_loss']
-        self.train_acc = checkpoint['train_acc']
+        self.train_accs = checkpoint['train_acc']
         self.test_losses = checkpoint['test_loss']
-        self.test_acc = checkpoint['test_acc']
+        self.test_accs = checkpoint['test_acc']
         self.vprint(f"The model weights are loaded from '{path}'.")
 
     def save(self, epoch: int|None =None) -> None:
