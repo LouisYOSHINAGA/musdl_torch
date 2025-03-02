@@ -173,8 +173,8 @@ class MIDIChoraleCollator:
     def filename_dropped_batch(self, batch: list[Any]) -> t.Tensor:
         # In the case `batch` is a list of tuple[str, PianoRollTensor, Any],
         # i.e. len(batch[0]) != 2, everything is needed except filename.
-        # In the case `batch` is a list of tuple[str, PinaoRollTensor],
-        # i.e. len(batch[0]) == 2, only PinoRollTensor is needed.
+        # In the case `batch` is a list of tuple[str, PianoRollTensor],
+        # i.e. len(batch[0]) == 2, only PianoRollTensor is needed.
         return default_collate([b[1:] for b in batch] if len(batch[0]) != 2 else [b[1] for b in batch])
 
 
