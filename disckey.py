@@ -2,14 +2,12 @@ import fire
 import torch as t
 import torch.nn as nn
 from torch.optim import Adam
-import torch.nn.functional as F
-from torcheval.metrics.functional import binary_accuracy
-from typing import TypeAlias, Any
+from typing import TypeAlias, Any, Callable
 from typedef import *
 from hparam import HyperParams, setup_hyperparams
-from data import setup_dataloaders
+from data import setup_dataloaders, MIDIChoraleDataLoader
 from train import Trainer
-from util import plot_train_log
+from util import lossfn_binary_cross_entropy, accfn_binary_accuracy, plot_train_log
 
 PianoRollBowBatchTensor: TypeAlias = t.Tensor  # (batch, keyclass)
 
@@ -36,12 +34,45 @@ class KeyDiscNet(nn.Module):
     def forward(self, prbt: PianoRollBatchTensor) -> t.Tensor:
         return self.kdnet(self.preprocess(prbt).to(self.device)).squeeze()  # (batch, )
 
+    @t.no_grad()
+    def inference(self, prbt: PianoRollBatchTensor) -> t.Tensor:
+        kmbt: t.Tensor = self.forward(prbt)
+        return (kmbt >= 0.5).int()
 
-def squeezed_binary_cross_entropy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
-    return F.cross_entropy(input, target.squeeze())
 
-def squeezed_binary_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
-    return binary_accuracy(input, target.squeeze())
+def print_compare(dataloader: MIDIChoraleDataLoader, inference_fn: Callable[[t.Tensor], t.Tensor]) -> None:
+    dataloader.inference()
+
+    label2keymode: list[str] = ["Major", "Minor"]
+    n_data: int = 0
+    n_true_pos: int = 0
+    n_false_pos: int = 0
+    n_false_neg: int = 0
+    n_true_neg: int = 0
+
+    print(f"{'=' * 60}")
+    for filenames, (prbt, tkmbt) in dataloader:
+        pkmbt: t.Tensor = inference_fn(prbt)
+        tkmbt = tkmbt.int().squeeze()
+        n_data += len(prbt)
+        for filename, pkm, tkm in zip(filenames, pkmbt, tkmbt):
+            print(f"{filename:>15}: ", end="")
+            print(f"target={label2keymode[tkm]}, predict={label2keymode[pkm]} ", end="")
+            print(f"[{'correct' if pkm == tkm else 'incorrect'}]")
+            if pkm == 0 and tkm == 0:
+                n_true_pos += 1
+            elif pkm == 0 and tkm == 1:
+                n_false_pos += 1
+            elif pkm == 1 and tkm == 0:
+                n_false_neg += 1
+            elif pkm == 1 and tkm == 1:
+                n_true_neg += 1
+    n_data: int = n_true_pos + n_false_pos + n_false_neg + n_true_neg
+
+    print(f"{'=' * 60}")
+    print(f"Accuracy : {(n_true_pos+n_true_neg)/n_data:.5f} (={n_true_pos+n_true_neg}/{n_data})")
+    print(f"Precition: {n_true_pos/(n_true_pos+n_false_pos):.5f} (={n_true_pos}/{n_true_pos+n_false_pos})")
+    print(f"Recall   : {n_true_pos/(n_true_pos+n_false_neg):.5f} (={n_true_pos}/{n_true_pos+n_false_neg})")
 
 
 def run(**kwargs: Any) -> None:
@@ -52,11 +83,12 @@ def run(**kwargs: Any) -> None:
 
     trainer: Trainer = Trainer(model, opt, hps,
                                train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-                               criterion_loss=squeezed_binary_cross_entropy,
-                               criterion_acc=squeezed_binary_accuracy)
+                               criterion_loss=lossfn_binary_cross_entropy, criterion_acc=accfn_binary_accuracy)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs,
                    is_save=True, logger=trainer.logger, is_show=True)
+
+    print_compare(test_dataloader, trainer.inference)
 
 if __name__ == "__main__":
     fire.Fire(run)

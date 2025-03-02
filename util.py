@@ -2,6 +2,8 @@ import pretty_midi as pm
 import soundfile as sf
 import matplotlib.pyplot as plt
 import torch.nn as nn
+import torch.nn.functional as F
+from torcheval.metrics.functional import binary_accuracy
 from torch.utils.data import DataLoader
 from typing import Any, Callable
 from typedef import *
@@ -13,6 +15,13 @@ def rnn_general(rnn_type: str, **rnn_kwargs: Any) -> nn.RNNBase:
     rnns: dict[str, type[nn.RNNBase]] = {'rnn': nn.RNN, 'lstm': nn.LSTM, 'gru': nn.GRU}
     assert rnn_type in rnns.keys(), f"Unexpected RNN type '{rnn_type}'. Available RNN type: {list(rnns.keys())}."
     return rnns[rnn_type](**rnn_kwargs)
+
+
+def lossfn_binary_cross_entropy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
+    return F.binary_cross_entropy(input, target.squeeze())
+
+def accfn_binary_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
+    return binary_accuracy(input, target.squeeze())
 
 
 def plot_pianoroll(pr: PianoRoll|PianoRollTensor, n_bars: int, note_low: int, note_high: int,
