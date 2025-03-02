@@ -2,12 +2,13 @@ import fire
 import torch as t
 import torch.nn as nn
 from torch.optim import Adam
-from typing import TypeAlias, Any, Callable
+from typing import TypeAlias, Any
 from typedef import *
-from hparam import HyperParams, setup_hyperparams
-from data import setup_dataloaders, MIDIChoraleDataLoader
+from hparam import HyperParams
+from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import lossfn_binary_cross_entropy, accfn_binary_accuracy, plot_train_log
+from util import setup, lossfn_binary_cross_entropy, accfn_binary_accuracy, plot_train_log
+
 
 PianoRollBowBatchTensor: TypeAlias = t.Tensor  # (batch, keyclass)
 
@@ -40,8 +41,9 @@ class KeyDiscNet(nn.Module):
         return (kmbt >= 0.5).int()
 
 
-def print_compare(dataloader: MIDIChoraleDataLoader, inference_fn: Callable[[t.Tensor], t.Tensor]) -> None:
-    dataloader.inference()
+def print_compare(trainer: Trainer) -> None:
+    assert isinstance(trainer.test_dataloader, MIDIChoraleDataLoader)
+    trainer.test_dataloader.inference()
 
     label2keymode: list[str] = ["Major", "Minor"]
     n_data: int = 0
@@ -50,15 +52,17 @@ def print_compare(dataloader: MIDIChoraleDataLoader, inference_fn: Callable[[t.T
     n_false_neg: int = 0
     n_true_neg: int = 0
 
-    print(f"{'=' * 60}")
-    for filenames, (prbt, tkmbt) in dataloader:
-        pkmbt: t.Tensor = inference_fn(prbt)
+    trainer.logger(f"\n{'=' * 60}")
+    for filenames, (prbt, tkmbt) in trainer.test_dataloader:
+        pkmbt: t.Tensor = trainer.inference(prbt)
         tkmbt = tkmbt.int().squeeze()
         n_data += len(prbt)
         for filename, pkm, tkm in zip(filenames, pkmbt, tkmbt):
-            print(f"{filename:>15}: ", end="")
-            print(f"target={label2keymode[tkm]}, predict={label2keymode[pkm]} ", end="")
-            print(f"[{'correct' if pkm == tkm else 'incorrect'}]")
+            trainer.logger((
+                f"{filename:>15}: "
+                f"target={label2keymode[tkm]}, predict={label2keymode[pkm]} "
+                f"[{'correct' if pkm == tkm else 'incorrect'}]"
+            ))
             if pkm == 0 and tkm == 0:
                 n_true_pos += 1
             elif pkm == 0 and tkm == 1:
@@ -69,26 +73,20 @@ def print_compare(dataloader: MIDIChoraleDataLoader, inference_fn: Callable[[t.T
                 n_true_neg += 1
     n_data: int = n_true_pos + n_false_pos + n_false_neg + n_true_neg
 
-    print(f"{'=' * 60}")
-    print(f"Accuracy : {(n_true_pos+n_true_neg)/n_data:.5f} (={n_true_pos+n_true_neg}/{n_data})")
-    print(f"Precition: {n_true_pos/(n_true_pos+n_false_pos):.5f} (={n_true_pos}/{n_true_pos+n_false_pos})")
-    print(f"Recall   : {n_true_pos/(n_true_pos+n_false_neg):.5f} (={n_true_pos}/{n_true_pos+n_false_neg})")
+    trainer.logger(f"{'=' * 60}")
+    trainer.logger(f"Accuracy : {(n_true_pos+n_true_neg)/n_data:.5f} (={n_true_pos+n_true_neg}/{n_data})")
+    trainer.logger(f"Precition: {n_true_pos/(n_true_pos+n_false_pos):.5f} (={n_true_pos}/{n_true_pos+n_false_pos})")
+    trainer.logger(f"Recall   : {n_true_pos/(n_true_pos+n_false_neg):.5f} (={n_true_pos}/{n_true_pos+n_false_neg})")
 
 
 def run(**kwargs: Any) -> None:
-    hps: HyperParams = setup_hyperparams(**kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
-    train_dataloader, test_dataloader = setup_dataloaders(hps)
-    model: KeyDiscNet = KeyDiscNet(hps).to(hps.general_device)
-    opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
-
-    trainer: Trainer = Trainer(model, opt, hps,
-                               train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-                               criterion_loss=lossfn_binary_cross_entropy, criterion_acc=accfn_binary_accuracy)
+    trainer: Trainer = setup(model_class=KeyDiscNet, opt_class=Adam,
+                             loss=lossfn_binary_cross_entropy, acc=accfn_binary_accuracy,
+                             **kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs,
                    is_save=True, logger=trainer.logger, is_show=True)
-
-    print_compare(test_dataloader, trainer.inference)
+    print_compare(trainer)
 
 if __name__ == "__main__":
     fire.Fire(run)

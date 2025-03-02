@@ -3,13 +3,11 @@ import torch as t
 import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
-from torcheval.metrics.functional import multiclass_accuracy
 from typing import Any
 from typedef import *
-from hparam import HyperParams, setup_hyperparams
-from data import setup_dataloaders
+from hparam import HyperParams
 from train import Trainer
-from util import rnn_general, plot_train_log, plot_save_midi
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, plot_train_log
 
 
 class HarmonyRNN(nn.Module):
@@ -40,29 +38,17 @@ class HarmonyRNN(nn.Module):
         return F.one_hot(t.argmax(ys, dim=-1), num_classes=self.n_note_class)  # (batch, time) -> (batch, time, note)
 
 
-def cross_entropy_for_sequence_classify(input: t.Tensor, target: t.Tensor) -> t.Tensor:
-    return F.cross_entropy(input, target.reshape(-1))
-
-def multiclass_accuracy_for_sequence_classify(input: t.Tensor, target: t.Tensor) -> t.Tensor:
-    return multiclass_accuracy(input, target.reshape(-1))
-
-
 def run(**kwargs: Any) -> None:
-    hps: HyperParams = setup_hyperparams(**kwargs, data_is_sep_part=True)
-    train_dataloader, test_dataloader = setup_dataloaders(hps)
-    model: HarmonyRNN =  HarmonyRNN(hps).to(hps.general_device)
-    opt: Adam = Adam(model.parameters(), lr=hps.train_lr)
-
-    trainer: Trainer = Trainer(model, opt, hps,
-                               train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-                               criterion_loss=cross_entropy_for_sequence_classify,
-                               criterion_acc=multiclass_accuracy_for_sequence_classify)
+    trainer: Trainer = setup(model_class=HarmonyRNN, opt_class=Adam,
+                             loss=lossfn_cross_entropy, acc=accfn_accuracy,
+                             **kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs,
                    is_save=True, logger=trainer.logger, is_show=True)
 
-    plot_save_midi(test_dataloader, trainer.inference, trainer.logger, hps,
-                   title="hrm_alt", is_save=True, is_show=True)
+    # TODO
+    # plot_save_midi(test_dataloader, trainer.inference, trainer.logger, hps,
+    #                title="hrm_alt", is_save=True, is_show=True)
 
 if __name__ == "__main__":
     fire.Fire(run)

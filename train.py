@@ -1,42 +1,22 @@
 import os
-from datetime import datetime, timedelta, timezone
 from tqdm import tqdm
 import torch as t
 import torch.nn as nn
 import torch.optim as optim
-from typing import Callable, Any
+from typing import Any
 from typedef import *
 from hparam import HyperParams
+from log import Logger
 from data import DataLoader
-
-CriterionFn: TypeAlias = Callable[[t.Tensor, t.Tensor], t.Tensor] \
-                       | Callable[[tuple[t.Tensor, t.Tensor], t.Tensor], t.Tensor]
 
 eps: float = 1e-5
 
 
-class Logger:
-    def __init__(self, hps: HyperParams) -> None:
-        self.init_time()
-        self.init_outdir(hps.general_output_path)
-
-    def init_time(self, fmt: str ="%Y%m%d_%H%M%S") -> None:
-        self.time: str = datetime.now(timezone(timedelta(hours=9), "JST")).strftime(fmt)
-
-    def init_outdir(self, outdir: str) -> None:
-        assert os.path.isdir(outdir), f"Target directory '{outdir}' does not exist."
-        self.outdir: str = f"{outdir}/out_{self.time}"
-        if not os.path.isdir(self.outdir):
-            os.makedirs(self.outdir)
-            print(f"Output directory '{self.outdir}' is newly made.")
-
-
 class Trainer:
-    def __init__(self, model: nn.Module, opt: optim.Optimizer, hps: HyperParams,
-                 train_dataloader: DataLoader, criterion_loss: CriterionFn, criterion_acc: CriterionFn,
-                 test_dataloader: DataLoader|None =None) -> None:
-        self.logger: Logger = Logger(hps)
-        self.verbose: bool = hps.train_verbose
+    def __init__(self, model: nn.Module, opt: optim.Optimizer, hps: HyperParams, logger: Logger,
+                 train_dataloader: DataLoader, test_dataloader: DataLoader,
+                 criterion_loss: CriterionFn, criterion_acc: CriterionFn) -> None:
+        self.logger: Logger = logger
 
         self.model: nn.Module = model
         self.opt: optim.Optimizer = opt
@@ -46,7 +26,7 @@ class Trainer:
         self.train_dataloader: DataLoader = train_dataloader
         self.criterion_loss: CriterionFn = criterion_loss
         self.criterion_acc: CriterionFn = criterion_acc
-        self.test_dataloader: DataLoader|None = test_dataloader
+        self.test_dataloader: DataLoader = test_dataloader
 
         self.train_losses: TrainMetricLog = []
         self.train_accs: TrainMetricLog = []
@@ -94,7 +74,6 @@ class Trainer:
         self.train_accs.append(epoch_total_n_cor/n_data)
 
     def test(self) -> None:
-        assert self.test_dataloader is not None, f"Test dataloader is not given."
         self.model.eval()
         epoch_total_loss: float = 0
         epoch_total_n_cor: int = 0
@@ -115,8 +94,8 @@ class Trainer:
 
     def load(self, path: str|None) -> None:
         if path is None:
-            self.vprint(f"The path for the model weights to be loaded is not specified.")
-            self.vprint(f"Start training the model from scratch.")
+            self.logger(f"The path for the model weights to be loaded is not specified.")
+            self.logger(f"Start training the model from scratch.\n")
             return
 
         assert os.path.isfile(path), f"The path for model weights '{path}' does not exist."
@@ -128,7 +107,7 @@ class Trainer:
         self.train_accs = checkpoint['train_acc']
         self.test_losses = checkpoint['test_loss']
         self.test_accs = checkpoint['test_acc']
-        self.vprint(f"The model weights are loaded from '{path}'.")
+        self.logger(f"The model weights are loaded from '{path}'.\n")
 
     def save(self, epoch: int|None =None) -> None:
         if epoch is not None and (epoch + 1) % self.save_period != 0:
@@ -144,7 +123,7 @@ class Trainer:
             'test_acc': self.test_accs,
         }
         t.save(state_dict, self.save_path)
-        self.vprint(f"The model weights are saved in '{self.save_path}'.")
+        self.logger(f"[epoch {state_dict['epoch']:04d}] The model weights are saved in '{self.save_path}'.")
 
     @property
     def outdir(self) -> str:
@@ -153,7 +132,3 @@ class Trainer:
     @property
     def time(self) -> str:
         return self.logger.time
-
-    def vprint(self, msg: str) -> None:
-        if self.verbose:
-            print(f"{msg}")

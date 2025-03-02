@@ -6,17 +6,18 @@ from torch.utils.data import Dataset, DataLoader, random_split, default_collate
 from typing import Any
 from typedef import *
 from hparam import HyperParams
+from log import Logger
 
 
 class MIDIChoraleDatset(Dataset):
-    def __init__(self, hps: HyperParams) -> None:
+    def __init__(self, hps: HyperParams, logger: Logger) -> None:
         self.is_sep_part: bool = hps.data_is_sep_part
         self.sequence_length: int = hps.data_resolution_nth_note * hps.data_length_bars
         self.extract_method: str = hps.data_extract_method
         self.rng: np.random.Generator = np.random.default_rng()
         self.is_return_key_mode: bool = hps.data_is_return_key_mode
         self.batch_size: int = hps.data_batch_size
-        self.verbose: bool = hps.data_verbose
+        self.logger: Logger = logger
         self.load(hps)
 
     def load(self, hps: HyperParams) -> None:
@@ -43,23 +44,23 @@ class MIDIChoraleDatset(Dataset):
             self.key_modes.append(key_mode)
             self.filenames.append(os.path.basename(f))
 
-        print(f"Load dataset with {len(self.key_modes)} samples from '{hps.data_path}'.")
+        self.logger(f"Load dataset with {len(self.key_modes)} samples from '{hps.data_path}'.")
 
     def load_midi_file(self, filename: str, is_relative_pitch: bool, resolution: int, \
                        note_low: int, note_high: int) -> tuple[dict[str, PianoRoll], int] | tuple[None, None]:
         if not os.path.isfile(filename):
             return None, None
         midi: pm.PrettyMIDI = pm.PrettyMIDI(filename)
-        self.vprint(f"Loading MIDI file '{filename}'.")
+        self.logger.debug(f"Loading MIDI file '{filename}'.")
 
         if self.is_sep_part and len(midi.instruments) < 2:  # use songs with 2 or more parts
-            self.vprint(f"Skip loading: lack of parts ({len(midi.instruments)} parts); '{filename}'")
+            self.logger.debug(f"Skip loading: lack of parts ({len(midi.instruments)} parts); '{filename}'")
             return None, None
         if len(midi.key_signature_changes) != 1:  # use songs without modulation
-            self.vprint(f"Skip loading: modulation included ({len(midi.instruments)} times); '{filename}'")
+            self.logger.debug(f"Skip loading: modulation included ({len(midi.instruments)} times); '{filename}'")
             return None, None
         if len(midi.get_tempo_changes()[1]) != 1:  # user songs without tempo change
-            self.vprint(f"Skip loading: tempo change included ({len(midi.get_tempo_changes()[1])} times); '{filename}'")
+            self.logger.debug(f"Skip loading: tempo change included ({len(midi.get_tempo_changes()[1])} times); '{filename}'")
             return None, None
 
         key_number: int = midi.key_signature_changes[0].key_number  # key number \in {major: {0..11}, minor: {12..23}}
@@ -67,7 +68,7 @@ class MIDIChoraleDatset(Dataset):
         tempo: int = midi.get_tempo_changes()[1][0]
 
         if is_relative_pitch:
-            self.vprint(f"Songs are transposed to C major/minor.")
+            self.logger(f"Songs are transposed to C major/minor.")
             midi = self.transpose(midi, key_number)
 
         prs_dct: dict[str, PianoRoll] = {
@@ -83,10 +84,6 @@ class MIDIChoraleDatset(Dataset):
             )
         }
         return prs_dct, key_mode
-
-    def vprint(self, msg: str) -> None:
-        if self.verbose:
-            print(f"{msg}")
 
     def transpose(self, midi: pm.PrettyMIDI, key_number: int) -> pm.PrettyMIDI:
         for inst in midi.instruments:
@@ -190,15 +187,15 @@ class MIDIChoraleDataLoader(DataLoader):
         self.dynamic_collator.inference()
 
 
-def setup_dataloaders(hps: HyperParams) -> tuple[MIDIChoraleDataLoader, MIDIChoraleDataLoader]:
-    dataset: Dataset = MIDIChoraleDatset(hps)
+def setup_dataloaders(hps: HyperParams, logger: Logger) -> tuple[MIDIChoraleDataLoader, MIDIChoraleDataLoader]:
+    dataset: Dataset = MIDIChoraleDatset(hps, logger)
 
     assert 0 <= hps.data_train_test_split < 1, \
         f"Invalid train:test split rate; '{hps.data_train_test_split}' must be in [0, 1)."
     n_data: int = len(dataset)
     n_train_data: int = int(hps.data_train_test_split * n_data)
     n_test_data: int = n_data - n_train_data
-    print(f"Split the dataset into training data ({n_train_data} samples) and test data ({n_test_data} samples).")
+    logger(f"Split the dataset into training data ({n_train_data} samples) and test data ({n_test_data} samples).\n")
 
     train_dataset, test_dataset = random_split(dataset, [n_train_data, n_test_data])
     train_dataloader: DataLoader = MIDIChoraleDataLoader(dataset=train_dataset, batch_size=hps.data_batch_size, shuffle=True)
@@ -208,10 +205,12 @@ def setup_dataloaders(hps: HyperParams) -> tuple[MIDIChoraleDataLoader, MIDIChor
 
 if __name__ == "__main__":
     from hparam import setup_hyperparams
+    from log import setup_logger
     from util import plot_pianoroll
 
     hps: HyperParams = setup_hyperparams(data_is_sep_part=False, data_is_return_key_mode=False)
-    _, test_dataloader = setup_dataloaders(hps)
+    logger: Logger = setup_logger(hps)
+    _, test_dataloader = setup_dataloaders(hps, logger)
 
     test_dataloader.inference()
     fns, prbt = next(iter(test_dataloader))
