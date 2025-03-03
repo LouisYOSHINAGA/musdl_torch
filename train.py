@@ -124,7 +124,12 @@ class Trainer:
             'test_acc': self.test_accs,
         }
         t.save(state_dict, self.save_path)
-        self.logger(f"[epoch {state_dict['epoch']:04d}] The model weights are saved in '{self.save_path}'.")
+
+        save_msg: str = f"The model weights are saved in '{self.save_path}'."
+        if epoch is not None:
+            self.logger(f"[epoch {state_dict['epoch']:04d}] {save_msg}", is_file_only=True)
+        else:
+            self.logger(f"The model weights are saved in '{self.save_path}'.")
 
     @property
     def outdir(self) -> str:

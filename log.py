@@ -21,12 +21,18 @@ class Logger:
             print(f"Output directory '{self.outdir}' is newly made.")
 
     def init_logger(self, log_path: str|None) -> None:
+        if log_path is None:
+            log_path = f"{self.outdir}/log_{self.time}.log"
+
         self.logger = logging.getLogger("trainer")
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(logging.StreamHandler())
-        self.logger.addHandler(logging.FileHandler(
-            log_path if log_path is not None else f"{self.outdir}/log_{self.time}.log"
-        ))
+        self.logger.addHandler(logging.FileHandler(log_path))
+
+        self.file_only_logger = logging.getLogger("trainer.file_only")
+        self.file_only_logger.setLevel(logging.INFO)
+        self.file_only_logger.propagate = False
+        self.file_only_logger.addHandler(logging.FileHandler(log_path))
 
     def log_hps(self, hps: HyperParams) -> None:
         self.logger.info(f"Hyper Parameters:")
@@ -34,23 +40,38 @@ class Logger:
             self.logger.info(f"    {k}: {v}")
         self.logger.info("")
 
-    def debug(self, msg: str) -> None:
-        self.logger.debug(msg)
+    def __call__(self, msg: str, is_file_only: bool =False) -> None:
+        self.info(msg, is_file_only)
 
-    def info(self, msg: str) -> None:
-        self.logger.info(msg)
+    def debug(self, msg: str, is_file_only: bool =False) -> None:
+        if is_file_only:
+            self.file_only_logger.debug(msg)
+        else:
+            self.logger.debug(msg)
 
-    def __call__(self, msg: str) -> None:
-        self.info(msg)
+    def info(self, msg: str, is_file_only: bool =False) -> None:
+        if is_file_only:
+            self.file_only_logger.info(msg)
+        else:
+            self.logger.info(msg)
 
-    def warning(self, msg: str) -> None:
-        self.logger.warning(msg)
+    def warning(self, msg: str, is_file_only: bool =False) -> None:
+        if is_file_only:
+            self.file_only_logger.warning(msg)
+        else:
+            self.logger.warning(msg)
 
-    def error(self, msg: str) -> None:
-        self.logger.error(msg)
+    def error(self, msg: str, is_file_only: bool =False) -> None:
+        if is_file_only:
+            self.file_only_logger.error(msg)
+        else:
+            self.logger.error(msg)
 
-    def critical(self, msg: str) -> None:
-        self.logger.critical(msg)
+    def critical(self, msg: str, is_file_only: bool =False) -> None:
+        if is_file_only:
+            self.file_only_logger.critical(msg)
+        else:
+            self.logger.critical(msg)
 
 
 def setup_logger(hps: HyperParams) -> Logger:
