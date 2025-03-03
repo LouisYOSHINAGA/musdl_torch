@@ -7,7 +7,7 @@ class Logger:
     def __init__(self, hps: HyperParams) -> None:
         self.init_time()
         self.init_outdir(hps.general_output_path)
-        self.init_logger(hps.general_log_path)
+        self.init_logger(hps.general_log_path, hps.general_log_level)
         self.log_hps(hps)
 
     def init_time(self, fmt: str ="%Y%m%d_%H%M%S") -> None:
@@ -20,17 +20,25 @@ class Logger:
             os.makedirs(self.outdir)
             print(f"Output directory '{self.outdir}' is newly made.")
 
-    def init_logger(self, log_path: str|None) -> None:
+    def init_logger(self, log_path: str|None, log_level: str) -> None:
         if log_path is None:
             log_path = f"{self.outdir}/log_{self.time}.log"
+        log_level_dict: dict[str, int] = {
+            'notset': logging.NOTSET,
+            'debug': logging.DEBUG,
+            'info': logging.INFO,
+            'warning': logging.WARNING,
+            'error': logging.ERROR,
+            'critical': logging.CRITICAL,
+        }
 
         self.logger = logging.getLogger("trainer")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(log_level_dict[log_level])
         self.logger.addHandler(logging.StreamHandler())
         self.logger.addHandler(logging.FileHandler(log_path))
 
         self.file_only_logger = logging.getLogger("trainer.file_only")
-        self.file_only_logger.setLevel(logging.INFO)
+        self.file_only_logger.setLevel(log_level_dict[log_level])
         self.file_only_logger.propagate = False
         self.file_only_logger.addHandler(logging.FileHandler(log_path))
 

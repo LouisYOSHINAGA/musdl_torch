@@ -19,6 +19,7 @@ default_hps = HyperParams(
     general_device="cpu",
     general_output_path="out",
     general_log_path=None,
+    general_log_level="info",
 
     data_path="dataset",
     data_ext=".mid",
