@@ -159,13 +159,10 @@ class MIDIChoraleCollator:
         elif self.mode == "inference":
             return [b[0] for b in batch], self.filename_dropped_batch(batch)
         else:
-            assert False
+            assert False, f"Unexpected collator mode '{self.mode}'."
 
     def set_mode(self, mode: str) -> None:
         self.mode = mode
-
-    def inference(self) -> None:
-        self.mode = "inference"
 
     def filename_dropped_batch(self, batch: list[Any]) -> t.Tensor:
         # In the case `batch` is a list of tuple[str, PianoRollTensor, Any],
@@ -180,11 +177,11 @@ class MIDIChoraleDataLoader(DataLoader):
         self.dynamic_collator: MIDIChoraleCollator = MIDIChoraleCollator()
         super().__init__(**kwargs, collate_fn=self.dynamic_collator)
 
-    def set_mode(self, mode: str) -> None:
-        self.dynamic_collator.set_mode(mode)
+    def train(self) -> None:
+        self.dynamic_collator.set_mode("train")
 
     def inference(self) -> None:
-        self.dynamic_collator.inference()
+        self.dynamic_collator.set_mode("inference")
 
 
 def setup_dataloaders(hps: HyperParams, logger: Logger) -> tuple[MIDIChoraleDataLoader, MIDIChoraleDataLoader]:

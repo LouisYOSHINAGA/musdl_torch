@@ -152,10 +152,13 @@ def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, title: str|N
     sf.write(f"{save_path}{wavext}", midi.synthesize(fs=sr), samplerate=sr)
     logger(f"Rendered wave data is saved in '{save_path}{wavext}'.")
 
-def plot_save_midi(trainer: Trainer, title: str, index: int =0, **plot_kwargs: Any) -> None:
-    assert isinstance(trainer.test_dataloader, MIDIChoraleDataLoader)
-    trainer.test_dataloader.inference()
-    fns, (xs, _) = next(iter(trainer.test_dataloader))
+def plot_save_midi(trainer: Trainer, title: str, index: int =0, is_train: bool =False,
+                   **plot_kwargs: Any) -> None:
+    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
+    assert isinstance(dataloader, MIDIChoraleDataLoader)
+    dataloader.inference()
+
+    fns, (xs, _) = next(iter(dataloader))
     ys: PianoRollBatchTensor = trainer.inference(xs)
     x: PianoRollTensor = xs[index, :, :-1]  # get first data, remove rest
     y: PianoRollTensor = ys[index, :, :-1]  # get first data, remove rest
