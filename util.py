@@ -2,13 +2,14 @@ import pretty_midi as pm
 import soundfile as sf
 import matplotlib.pyplot as plt
 import torch.nn as nn
+from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torcheval.metrics.functional import binary_accuracy, multiclass_accuracy
 from typing import Any
 from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from log import Logger, setup_logger
-from data import setup_dataloaders
+from data import MIDIChoraleDataLoader, setup_dataloaders
 from train import Trainer
 
 
@@ -46,6 +47,39 @@ def accfn_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
     return multiclass_accuracy(input, target.reshape(-1))
 
 
+def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
+                   test_losses: TrainMetricLog, test_accs: TrainMetricLog,
+                   figsize: tuple[float, float] =(14, 5),
+                   is_save: bool =False, logger: Logger|None =None, title: str ="loss_acc",
+                   is_show: bool =False) -> None:
+    if not is_save and not is_show:
+        return
+
+    fig = plt.figure(figsize=figsize)
+    axl = fig.add_subplot(1, 2, 1)
+    axl.set_xlabel("epoch")
+    axl.set_ylabel("loss")
+    axl.plot(range(len(train_losses)), train_losses, label="train loss")
+    axl.plot(range(len(test_losses)), test_losses, label="test loss")
+    axl.legend()
+
+    axr = fig.add_subplot(1, 2, 2)
+    axr.set_xlabel("epoch")
+    axr.set_ylabel("accuracy")
+    axr.plot(range(len(train_accs)), train_accs, label="train acc")
+    axr.plot(range(len(test_accs)), test_accs, label="test acc")
+    axr.legend()
+    plt.tight_layout()
+
+    if is_save:
+        assert logger is not None
+        save_path: str = f"{logger.outdir}/{title}_{logger.time}.png"
+        plt.savefig(save_path, dpi=320, bbox_inches="tight")
+        logger(f"Figure of loss and accuracy is saved in '{save_path}'.")
+    if is_show:
+        plt.show()
+    else:
+        plt.close()
 
 def plot_pianoroll(pr: PianoRoll|PianoRollTensor, n_bars: int, note_low: int, note_high: int,
                    figsize: tuple[float, float] =(7, 5),
@@ -99,40 +133,6 @@ def plot_pianorolls(pr0: PianoRoll|PianoRollTensor, pr1: PianoRoll|PianoRollTens
     else:
         plt.close()
 
-def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
-                   test_losses: TrainMetricLog, test_accs: TrainMetricLog,
-                   figsize: tuple[float, float] =(14, 5),
-                   is_save: bool =False, logger: Logger|None =None, title: str ="loss_acc",
-                   is_show: bool =False) -> None:
-    if not is_save and not is_show:
-        return
-
-    fig = plt.figure(figsize=figsize)
-    axl = fig.add_subplot(1, 2, 1)
-    axl.set_xlabel("epoch")
-    axl.set_ylabel("loss")
-    axl.plot(range(len(train_losses)), train_losses, label="train loss")
-    axl.plot(range(len(test_losses)), test_losses, label="test loss")
-    axl.legend()
-
-    axr = fig.add_subplot(1, 2, 2)
-    axr.set_xlabel("epoch")
-    axr.set_ylabel("accuracy")
-    axr.plot(range(len(train_accs)), train_accs, label="train acc")
-    axr.plot(range(len(test_accs)), test_accs, label="test acc")
-    axr.legend()
-    plt.tight_layout()
-
-    if is_save:
-        assert logger is not None
-        save_path: str = f"{logger.outdir}/{title}_{logger.time}.png"
-        plt.savefig(save_path, dpi=320, bbox_inches="tight")
-        logger(f"Figure of loss and accuracy is saved in '{save_path}'.")
-    if is_show:
-        plt.show()
-    else:
-        plt.close()
-
 def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, title: str|None =None,
               resolution: int =480, note_offset: int =0, sr: int =44100,
               midext: str =".mid", wavext: str =".wav") -> None:
@@ -152,12 +152,15 @@ def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, title: str|N
     sf.write(f"{save_path}{wavext}", midi.synthesize(fs=sr), samplerate=sr)
     logger(f"Rendered wave data is saved in '{save_path}{wavext}'.")
 
-# def plot_save_midi(dataloader: DataLoader, inference_fn: Callable[[t.Tensor], t.Tensor], logger: Logger,
-#                    hps: HyperParams, title: str, **plot_kwargs: Any) -> None:
-#     xs, _ = next(iter(dataloader))
-#     ys: PianoRollBatchTensor = inference_fn(xs)
-#     x: PianoRollTensor = xs[0, :, :-1]  # get first data, remove rest
-#     y: PianoRollTensor = ys[0, :, :-1]  # get first data, remove rest
-#     save_midi([x, y], logger=logger, title=title, note_offset=hps.data_note_low)
-#     plot_pianorolls(x, y, n_bars=hps.data_length_bars, note_low=hps.data_note_low, note_high=hps.data_note_high,
-#                     logger=logger, title=title, **plot_kwargs)
+def plot_save_midi(trainer: Trainer, title: str, index: int =0, **plot_kwargs: Any) -> None:
+    assert isinstance(trainer.test_dataloader, MIDIChoraleDataLoader)
+    trainer.test_dataloader.inference()
+    fns, (xs, _) = next(iter(trainer.test_dataloader))
+    ys: PianoRollBatchTensor = trainer.inference(xs)
+    x: PianoRollTensor = xs[index, :, :-1]  # get first data, remove rest
+    y: PianoRollTensor = ys[index, :, :-1]  # get first data, remove rest
+    trainer.logger(f"\nTarget MIDI file for inference: {fns[index]}")
+    plot_pianorolls(x, y, n_bars=trainer.hps.data_length_bars,
+                    note_low=trainer.hps.data_note_low, note_high=trainer.hps.data_note_high,
+                    logger=trainer.logger, title=title, **plot_kwargs)
+    save_midi([x, y], logger=trainer.logger, title=title, note_offset=trainer.hps.data_note_low)

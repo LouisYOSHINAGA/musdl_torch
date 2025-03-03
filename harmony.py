@@ -7,7 +7,7 @@ from typing import Any
 from typedef import *
 from hparam import HyperParams
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, plot_train_log
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, plot_train_log, plot_save_midi
 
 
 class HarmonyRNN(nn.Module):
@@ -41,14 +41,11 @@ class HarmonyRNN(nn.Module):
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=HarmonyRNN, opt_class=Adam,
                              loss=lossfn_cross_entropy, acc=accfn_accuracy,
-                             **kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
+                             **kwargs, data_is_sep_part=True)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs,
                    is_save=True, logger=trainer.logger, is_show=True)
-
-    # TODO
-    # plot_save_midi(test_dataloader, trainer.inference, trainer.logger, hps,
-    #                title="hrm_alt", is_save=True, is_show=True)
+    plot_save_midi(trainer, title="hrm_alt", is_save=True, is_show=True)
 
 if __name__ == "__main__":
     fire.Fire(run)

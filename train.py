@@ -16,6 +16,7 @@ class Trainer:
     def __init__(self, model: nn.Module, opt: optim.Optimizer, hps: HyperParams, logger: Logger,
                  train_dataloader: DataLoader, test_dataloader: DataLoader,
                  criterion_loss: CriterionFn, criterion_acc: CriterionFn) -> None:
+        self.hps: HyperParams = hps
         self.logger: Logger = logger
 
         self.model: nn.Module = model
