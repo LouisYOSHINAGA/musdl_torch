@@ -33,7 +33,7 @@ class HarmonyRNN(nn.Module):
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
     def inference(self, prbt: PianoRollBatchTensor) -> NoteSequenceBatchTensor:
-        ys, _ = self.rnn(prbt.to(self.device))
+        ys, _ = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
         ys = self.fc(ys)  # (batch, time, note)
         return F.one_hot(t.argmax(ys, dim=-1), num_classes=self.n_note_class)  # (batch, time) -> (batch, time, note)
 

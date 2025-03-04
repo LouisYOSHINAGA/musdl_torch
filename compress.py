@@ -58,7 +58,7 @@ class Decoder(nn.Module):
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
     def inference(self, xs: t.Tensor) -> NoteSequenceBatchTensor:
-        ys: t.Tensor = xs.repeat(1, self.sequence_length, 1)  # (batch, time, dim)
+        ys: t.Tensor = xs.unsqueeze(1).repeat(1, self.sequence_length, 1)  # (batch, 1, dim) -> (batch, time, dim)
         ys, _ = self.rnn(ys)  # (batch, time, dim), (layer, time, dim)
         ys = self.fc(ys)  # (batch, time, note)
         return F.one_hot(t.argmax(ys, dim=-1), num_classes=self.n_note_class)  # (batch, time) -> (batch, time, note)

@@ -160,8 +160,8 @@ def plot_save_midi(trainer: Trainer, title: str, index: int =0, is_train: bool =
 
     fns, (xs, _) = next(iter(dataloader))
     ys: PianoRollBatchTensor = trainer.inference(xs)
-    x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get first data, remove rest
-    y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get first data, remove rest
+    x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
+    y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
     trainer.logger(f"\nTarget MIDI file for inference: {fns[index]}")
     plot_pianorolls(x, y, n_bars=trainer.hps.data_length_bars,
                     note_low=trainer.hps.data_note_low, note_high=trainer.hps.data_note_high,
