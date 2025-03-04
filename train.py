@@ -123,6 +123,7 @@ class Trainer:
             'test_loss': self.test_losses,
             'test_acc': self.test_accs,
         }
+        self.model.to(self.model.device)  # restore for next epoch
         t.save(state_dict, self.save_path)
 
         save_msg: str = f"The model weights are saved in '{self.save_path}'."
