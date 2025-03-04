@@ -30,7 +30,7 @@ class Encoder(nn.Module):
 
     def forward(self, prbt: PianoRollBatchTensor) -> t.Tensor:
         ys, _ = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
-        ys = self.fc(ys[:, -1, :])  # (batch, 1, dim)
+        ys = self.fc(ys[:, -1, :])  # (batch, dim)
         return ys
 
 
@@ -53,7 +53,7 @@ class Decoder(nn.Module):
         self.fc: nn.Module = nn.Linear(hps.cmp_dec_rnn_hidden_size, self.n_note_class)
 
     def forward(self, xs: t.Tensor) -> PianoRollBatchTensor:
-        ys: t.Tensor = xs.repeat(1, self.sequence_length, 1)  # (batch, time, dim)
+        ys: t.Tensor = xs.unsqueeze(1).repeat(1, self.sequence_length, 1)  # (batch, 1, dim) -> (batch, time, dim)
         ys, _ = self.rnn(ys)  # (batch, time, dim), (layer, time, dim)
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
