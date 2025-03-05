@@ -32,6 +32,7 @@ class HarmonyRNN(nn.Module):
         ys, _  = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
+    @t.no_grad()
     def inference(self, prbt: PianoRollBatchTensor) -> NoteSequenceBatchTensor:
         ys, _ = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
         ys = self.fc(ys)  # (batch, time, note)

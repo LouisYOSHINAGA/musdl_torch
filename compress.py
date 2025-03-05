@@ -3,7 +3,6 @@ import torch as t
 import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
-from torcheval.metrics.functional import multiclass_accuracy
 from typing import Any
 from typedef import *
 from hparam import HyperParams
@@ -57,6 +56,7 @@ class Decoder(nn.Module):
         ys, _ = self.rnn(ys)  # (batch, time, dim), (layer, time, dim)
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
+    @t.no_grad()
     def inference(self, xs: t.Tensor) -> NoteSequenceBatchTensor:
         ys: t.Tensor = xs.unsqueeze(1).repeat(1, self.sequence_length, 1)  # (batch, 1, dim) -> (batch, time, dim)
         ys, _ = self.rnn(ys)  # (batch, time, dim), (layer, time, dim)
@@ -74,15 +74,9 @@ class AutoEncoder(nn.Module):
     def forward(self, prbt: PianoRollBatchTensor) -> PianoRollBatchTensor:
         return self.dec(self.enc(prbt))
 
+    @t.no_grad()
     def inference(self, prbt: PianoRollBatchTensor) -> PianoRollBatchTensor:
         return self.dec.inference(self.enc(prbt))
-
-
-def cross_entropy_for_sequence_classify(input: t.Tensor, target: t.Tensor) -> t.Tensor:
-    return F.cross_entropy(input, target.reshape(-1))
-
-def multiclass_accuracy_for_sequence_classify(input: t.Tensor, target: t.Tensor) -> t.Tensor:
-    return multiclass_accuracy(input, target.reshape(-1))
 
 
 def run(**kwargs: Any) -> None:
