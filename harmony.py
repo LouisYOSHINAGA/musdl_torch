@@ -41,7 +41,7 @@ class HarmonyRNN(nn.Module):
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=HarmonyRNN, opt_class=Adam,
                              loss=lossfn_cross_entropy, acc=accfn_accuracy,
-                             **kwargs, data_is_sep_part=True)
+                             **kwargs, data_is_sep_part=True, data_is_recons=False)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs,
                    is_save=True, logger=trainer.logger, is_show=True)

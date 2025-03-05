@@ -15,6 +15,7 @@ class MIDIChoraleDatset(Dataset):
         self.sequence_length: int = hps.data_resolution_nth_note * hps.data_length_bars
         self.extract_method: str = hps.data_extract_method
         self.rng: np.random.Generator = np.random.default_rng()
+        self.is_recons: bool = hps.data_is_recons
         self.is_return_key_mode: bool = hps.data_is_return_key_mode
         self.batch_size: int = hps.data_batch_size
         self.logger: Logger = logger
@@ -109,7 +110,8 @@ class MIDIChoraleDatset(Dataset):
             pr_sop: PianoRoll = self.prs_sop[index]
             pr_alt: PianoRoll = self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
-            return self.filenames[index], self.onehot(pr_sop[start:end]), self.numerical(pr_alt[start:end])
+            return (self.filenames[index], self.onehot(pr_sop[start:end]), self.numerical(pr_sop[start:end])) if self.is_recons \
+                   else (self.filenames[index], self.onehot(pr_sop[start:end]), self.numerical(pr_alt[start:end]))
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])

@@ -88,7 +88,7 @@ def multiclass_accuracy_for_sequence_classify(input: t.Tensor, target: t.Tensor)
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=AutoEncoder, opt_class=Adam,
                              loss=lossfn_cross_entropy, acc=accfn_accuracy,
-                             **kwargs, data_is_sep_part=True)
+                             **kwargs, data_is_sep_part=True, data_is_recons=True)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs,
                    is_save=True, logger=trainer.logger, is_show=True)
