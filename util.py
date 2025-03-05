@@ -40,11 +40,19 @@ def lossfn_binary_cross_entropy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
 def lossfn_cross_entropy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
     return F.cross_entropy(input, target.reshape(-1))
 
+def lossfn_elbo(inputs: tuple[t.Tensor, t.Tensor], target: t.Tensor) -> t.Tensor:
+    recons, kl_loss = inputs
+    recons_loss: t.Tensor = F.cross_entropy(recons, target.reshape(-1))  # - E[ log(p(x|z)) ]
+    return recons_loss + kl_loss
+
 def accfn_binary_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
     return binary_accuracy(input, target.squeeze())
 
 def accfn_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
     return multiclass_accuracy(input, target.reshape(-1))
+
+def accfn_accuracy_for_elbo(inputs: tuple[t.Tensor, t.Tensor], target: t.Tensor) -> t.Tensor:
+    return multiclass_accuracy(inputs[0], target.reshape(-1))
 
 
 def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
