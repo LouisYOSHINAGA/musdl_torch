@@ -7,7 +7,8 @@ from typing import Any
 from typedef import *
 from hparam import HyperParams
 from train import Trainer
-from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, plot_train_log, plot_save_midi
+from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, plot_save_midi
+from plot import plot_train_log
 
 
 class Encoder(nn.Module):

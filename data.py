@@ -212,7 +212,7 @@ def setup_dataloaders(hps: HyperParams, logger: Logger) -> tuple[MIDIChoraleData
 if __name__ == "__main__":
     from hparam import setup_hyperparams
     from log import setup_logger
-    from util import plot_pianoroll
+    from plot import plot_pianoroll
 
     hps: HyperParams = setup_hyperparams(data_is_sep_part=False, data_is_return_key_mode=False)
     logger: Logger = setup_logger(hps)

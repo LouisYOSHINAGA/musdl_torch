@@ -7,7 +7,8 @@ from typing import Any
 from typedef import *
 from hparam import HyperParams
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, plot_train_log, plot_save_midi
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, plot_save_midi
+from plot import plot_train_log
 
 
 class Encoder(nn.Module):
@@ -78,6 +79,10 @@ class AutoEncoder(nn.Module):
     def inference(self, prbt: PianoRollBatchTensor) -> PianoRollBatchTensor:
         return self.dec.inference(self.enc(prbt))
 
+    @t.no_grad()
+    def compress(self, prbt: PianoRollBatchTensor) -> t.Tensor:
+        return self.enc(prbt)
+
 
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=AutoEncoder, opt_class=Adam,
@@ -88,6 +93,7 @@ def run(**kwargs: Any) -> None:
                    is_save=True, logger=trainer.logger, is_show=True)
     plot_save_midi(trainer, title="recons_train", is_train=True, is_save=True, is_show=True)
     plot_save_midi(trainer, title="recons_test", is_save=True, is_show=True)
+    # visualize_latent_space() # TODO
 
 if __name__ == "__main__":
     fire.Fire(run)

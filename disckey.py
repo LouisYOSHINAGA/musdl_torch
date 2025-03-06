@@ -7,7 +7,8 @@ from typedef import *
 from hparam import HyperParams
 from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import setup, lossfn_binary_cross_entropy, accfn_binary_accuracy, plot_train_log
+from util import setup, lossfn_binary_cross_entropy, accfn_binary_accuracy
+from plot import plot_train_log
 
 
 PianoRollBowBatchTensor: TypeAlias = t.Tensor  # (batch, keyclass)
