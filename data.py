@@ -110,13 +110,20 @@ class MIDIChoraleDatset(Dataset):
             pr_sop: PianoRoll = self.prs_sop[index]
             pr_alt: PianoRoll = self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
-            return (self.filenames[index], self.onehot(pr_sop[start:end]), self.numerical(pr_sop[start:end])) if self.is_recons \
-                   else (self.filenames[index], self.onehot(pr_sop[start:end]), self.numerical(pr_alt[start:end]))
+            if self.is_recons:
+                if self.is_return_key_mode:
+                    return self.filenames[index], self.onehot(pr_sop[start:end]), t.Tensor([self.key_modes[index]])
+                else:
+                    return self.filenames[index], self.onehot(pr_sop[start:end]), self.numerical(pr_sop[start:end])
+            else:
+                return self.filenames[index], self.onehot(pr_sop[start:end]), self.numerical(pr_alt[start:end])
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
-            return (self.filenames[index], t.Tensor(pr[start:end]), t.Tensor([self.key_modes[index]])) if self.is_return_key_mode \
-                   else (self.filenames[index], t.Tensor(pr[start:end]))
+            if self.is_return_key_mode:
+                return self.filenames[index], t.Tensor(pr[start:end]), t.Tensor([self.key_modes[index]])
+            else:
+                return self.filenames[index], t.Tensor(pr[start:end])
 
     def get_sequence_range(self, full_length: int) -> tuple[int, int]:
         first_half_length: int = math.floor(self.sequence_length/2)
