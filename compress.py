@@ -7,7 +7,7 @@ from typing import Any
 from typedef import *
 from hparam import HyperParams
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, inference
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, inference, compress
 from plot import plot_train_log
 
 
@@ -28,10 +28,9 @@ class Encoder(nn.Module):
         )
         self.fc: nn.Module = nn.Linear(hps.cmp_enc_rnn_hidden_size, hps.cmp_hidden_size)
 
-    def forward(self, prbt: PianoRollBatchTensor) -> t.Tensor:
+    def forward(self, prbt: PianoRollBatchTensor) -> LatentBatchTensor:
         ys, _ = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
-        ys = self.fc(ys[:, -1, :])  # (batch, dim)
-        return ys
+        return self.fc(ys[:, -1, :])  # (batch, dim)
 
 
 class Decoder(nn.Module):
@@ -52,7 +51,7 @@ class Decoder(nn.Module):
         )
         self.fc: nn.Module = nn.Linear(hps.cmp_dec_rnn_hidden_size, self.n_note_class)
 
-    def forward(self, xs: t.Tensor) -> PianoRollBatchTensor:
+    def forward(self, xs: LatentBatchTensor) -> PianoRollBatchTensor:
         ys: t.Tensor = xs.unsqueeze(1).repeat(1, self.sequence_length, 1)  # (batch, 1, dim) -> (batch, time, dim)
         ys, _ = self.rnn(ys)  # (batch, time, dim), (layer, time, dim)
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
@@ -80,7 +79,7 @@ class AutoEncoder(nn.Module):
         return self.dec.inference(self.enc(prbt))
 
     @t.no_grad()
-    def compress(self, prbt: PianoRollBatchTensor) -> t.Tensor:
+    def compress(self, prbt: PianoRollBatchTensor) -> LatentBatchTensor:
         return self.enc(prbt)
 
 
@@ -93,6 +92,8 @@ def run(**kwargs: Any) -> None:
                    is_save=True, logger=trainer.logger)
     inference(trainer, title="recons_train", is_train=True, is_save=True)
     inference(trainer, title="recons_test", is_save=True)
+    compress(trainer, title="latent_train", is_train=True, is_save=True)
+    compress(trainer, title="latent_test", is_save=True)
 
 if __name__ == "__main__":
     fire.Fire(run)

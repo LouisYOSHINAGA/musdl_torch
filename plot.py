@@ -39,6 +39,7 @@ def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
     else:
         plt.close()
 
+
 def plot_pianoroll(pr: PianoRoll|PianoRollTensor, n_bars: int, note_low: int, note_high: int,
                    figsize: tuple[float, float] =(7, 5),
                    is_save: bool =False, logger: Logger|None =None, title: str|None =None,
@@ -91,6 +92,7 @@ def plot_pianorolls(pr0: PianoRoll|PianoRollTensor, pr1: PianoRoll|PianoRollTens
     else:
         plt.close()
 
+
 def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, title: str|None =None,
               resolution: int =480, note_offset: int =0, sr: int =44100,
               midext: str =".mid", wavext: str =".wav") -> None:
@@ -109,3 +111,31 @@ def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, title: str|N
     logger(f"Midi data is saved in '{save_path}{midext}'.")
     sf.write(f"{save_path}{wavext}", midi.synthesize(fs=sr), samplerate=sr)
     logger(f"Rendered wave data is saved in '{save_path}{wavext}'.")
+
+
+def scatter(datas: list[LatentBatchTensor], labels: list[str], n_dim: int =2,
+            figsize: tuple[float, float] =(7, 5),
+            is_save: bool =False, logger: Logger|None =None, title: str|None =None,
+            is_show: bool =False) -> None:
+    assert len(datas) == len(labels)
+    assert datas[0].shape[1] >= n_dim and n_dim in [2, 3]
+
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111, projection=("rectilinear" if n_dim == 2 else "3d"))
+    for i, (data, label) in enumerate(zip(datas, labels)):
+        if n_dim == 2:
+            ax.scatter(data[:, 0], data[:, 1], color=plt.get_cmap("tab10")(i), label=label)
+        elif n_dim == 3:
+            ax.scatter(data[:, 0], data[:, 1], data[:, 2], color=plt.get_cmap("tab10")(i), label=label)
+    plt.legend()
+    plt.tight_layout()
+
+    if is_save:
+        assert logger is not None
+        save_path: str = f"{logger.outdir}/{title if title is not None else f'scatter_{n_dim}d'}_{logger.time}.png"
+        plt.savefig(save_path, dpi=320, bbox_inches="tight")
+        logger(f"Figure of scatter {n_dim}D is saved in '{save_path}'.")
+    if is_show:
+        plt.show()
+    else:
+        plt.close()

@@ -7,7 +7,7 @@ from typing import Any
 from typedef import *
 from hparam import HyperParams
 from train import Trainer
-from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, inference
+from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, inference, compress
 from plot import plot_train_log
 
 
@@ -97,17 +97,24 @@ class VariationalAutoEncoder(nn.Module):
         return self.dec.inference(self.enc(prbt))
 
     @t.no_grad()
+    def compress(self, prbt: PianoRollBatchTensor) -> t.Tensor:
+        return self.enc(prbt)[0]
+
+    @t.no_grad()
     def generate(self, batch_size: int) -> PianoRollBatchTensor:
         return self.dec.generate(batch_size)
 
 
 def run(**kwargs: Any) -> None:
+
     trainer: Trainer = setup(model_class=VariationalAutoEncoder, opt_class=Adam,
                              loss=lossfn_elbo, acc=accfn_accuracy_for_elbo,
                              **kwargs, data_is_sep_part=True, data_is_recons=True)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs, is_save=True, logger=trainer.logger)
-    inference(trainer, title="gen_sop", is_save=True)
+    # inference(trainer, title="gen_sop", is_save=True)
+    # compress(trainer, title="latent_train", is_train=True, is_save=True)
+    # compress(trainer, title="latent_test", is_save=True)
 
 if __name__ == "__main__":
     fire.Fire(run)

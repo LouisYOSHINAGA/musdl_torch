@@ -9,6 +9,7 @@ PianoRollBatchTensor: TypeAlias = t.Tensor  # (batch, time, note)
 NoteSequenceTensor: TypeAlias = t.Tensor  # (time, )
 NoteSequenceBatchTensor: TypeAlias = t.Tensor  # (batch, time)
 KeyModeTensor: TypeAlias = t.Tensor  # (keymode, )
+LatentBatchTensor: TypeAlias = t.Tensor  # (batch, dim)
 
 Optimizer: TypeAlias = t.optim.SGD | t.optim.Adagrad | t.optim.RMSprop | t.optim.Adam
 CriterionFn: TypeAlias = Callable[[t.Tensor, t.Tensor], t.Tensor] \

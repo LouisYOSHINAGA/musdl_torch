@@ -93,6 +93,10 @@ class Trainer:
         self.model.eval()
         return self.model.inference(xs)
 
+    def compress(self, xs: t.Tensor) -> t.Tensor:
+        self.model.eval()
+        return self.model.compress(xs)
+
     def load(self, path: str|None) -> None:
         if path is None:
             self.logger(f"The path for the model weights to be loaded is not specified.")
