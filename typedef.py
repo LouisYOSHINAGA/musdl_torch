@@ -15,3 +15,5 @@ CriterionFn: TypeAlias = Callable[[t.Tensor, t.Tensor], t.Tensor] \
 TrainMetricLog: TypeAlias = list[float]
 
 N_KEY_CLASS: int = 12
+KEY_MAJOR: int = 0
+KEY_MINOR: int = 1
