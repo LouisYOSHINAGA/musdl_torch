@@ -7,7 +7,7 @@ from typing import Any
 from typedef import *
 from hparam import HyperParams
 from train import Trainer
-from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, plot_save_midi
+from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, inference
 from plot import plot_train_log
 
 
@@ -106,9 +106,8 @@ def run(**kwargs: Any) -> None:
                              loss=lossfn_elbo, acc=accfn_accuracy_for_elbo,
                              **kwargs, data_is_sep_part=True, data_is_recons=True)
     train_losses, train_accs, test_losses, test_accs = trainer()
-    plot_train_log(train_losses, train_accs, test_losses, test_accs,
-                   is_save=True, logger=trainer.logger, is_show=True)
-    plot_save_midi(trainer, title="gen_sop", is_save=True, is_show=True)
+    plot_train_log(train_losses, train_accs, test_losses, test_accs, is_save=True, logger=trainer.logger)
+    inference(trainer, title="gen_sop", is_save=True)
 
 if __name__ == "__main__":
     fire.Fire(run)

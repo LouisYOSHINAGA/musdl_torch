@@ -44,7 +44,7 @@ class KeyDiscNet(nn.Module):
 
 def print_compare(trainer: Trainer) -> None:
     assert isinstance(trainer.test_dataloader, MIDIChoraleDataLoader)
-    trainer.test_dataloader.inference()
+    trainer.test_dataloader.set_modes("f")
 
     label2keymode: list[str] = ["Major", "Minor"]
     n_data: int = 0
@@ -83,10 +83,9 @@ def print_compare(trainer: Trainer) -> None:
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=KeyDiscNet, opt_class=Adam,
                              loss=lossfn_binary_cross_entropy, acc=accfn_binary_accuracy,
-                             **kwargs, data_is_sep_part=False, data_is_return_key_mode=True)
+                             **kwargs, data_is_sep_part=False, conf="!fk")
     train_losses, train_accs, test_losses, test_accs = trainer()
-    plot_train_log(train_losses, train_accs, test_losses, test_accs,
-                   is_save=True, logger=trainer.logger, is_show=True)
+    plot_train_log(train_losses, train_accs, test_losses, test_accs, is_save=True, logger=trainer.logger)
     print_compare(trainer)
 
 if __name__ == "__main__":
