@@ -1,8 +1,8 @@
 import fire
 import torch as t
 import torch.nn as nn
-from torch.optim import Adam
 import torch.nn.functional as F
+from torch.optim import Adam
 from typing import Any
 from typedef import *
 from hparam import HyperParams

@@ -3,11 +3,11 @@ from tqdm import tqdm
 import torch as t
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 from typing import Any
 from typedef import *
 from hparam import HyperParams
 from log import Logger
-from data import DataLoader
 
 eps: float = 1e-5
 

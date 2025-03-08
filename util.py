@@ -1,6 +1,6 @@
 import torch.nn as nn
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 from torcheval.metrics.functional import binary_accuracy, multiclass_accuracy
 from typing import Any
 from typedef import *
