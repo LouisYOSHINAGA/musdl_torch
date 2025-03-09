@@ -3,12 +3,14 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
+from torch.utils.data import DataLoader
 from typing import Any
 from typedef import *
 from hparam import HyperParams
+from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, inference, compress
-from plot import plot_train_log
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy
+from plot import plot_train_log, plot_pianorolls, save_midi, scatter
 
 
 class Encoder(nn.Module):
@@ -57,7 +59,7 @@ class Decoder(nn.Module):
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
     @t.no_grad()
-    def inference(self, xs: t.Tensor) -> NoteSequenceBatchTensor:
+    def reconstruct(self, xs: LatentBatchTensor) -> PianoRollBatchTensor:
         ys: t.Tensor = xs.unsqueeze(1).repeat(1, self.sequence_length, 1)  # (batch, 1, dim) -> (batch, time, dim)
         ys, _ = self.rnn(ys)  # (batch, time, dim), (layer, time, dim)
         ys = self.fc(ys)  # (batch, time, note)
@@ -75,12 +77,51 @@ class AutoEncoder(nn.Module):
         return self.dec(self.enc(prbt))
 
     @t.no_grad()
-    def inference(self, prbt: PianoRollBatchTensor) -> PianoRollBatchTensor:
-        return self.dec.inference(self.enc(prbt))
+    def reconstruct(self, prbt: PianoRollBatchTensor) -> PianoRollBatchTensor:
+        return self.dec.reconstruct(self.enc(prbt))
 
     @t.no_grad()
     def compress(self, prbt: PianoRollBatchTensor) -> LatentBatchTensor:
         return self.enc(prbt)
+
+
+def reconstruct(trainer: Trainer, title: str|None =None, index: int =0, is_train: bool =False,
+              **plot_kwargs: Any) -> None:
+    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
+    assert isinstance(dataloader, MIDIChoraleDataLoader)
+    dataloader.set_modes("f!k")
+
+    fns, (xs, _) = next(iter(dataloader))
+    ys: PianoRollBatchTensor = trainer.model.reconstruct(xs)
+    x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
+    y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
+
+    trainer.logger(f"\nTarget MIDI file for inference: {fns[index]}")
+    plot_pianorolls(x, y, n_bars=trainer.hps.data_length_bars,
+                    note_low=trainer.hps.data_note_low, note_high=trainer.hps.data_note_high,
+                    logger=trainer.logger, title=title, **plot_kwargs)
+    save_midi([x, y], logger=trainer.logger, title=title, note_offset=trainer.hps.data_note_low)
+
+def compress(trainer: Trainer, title: str|None =None, n_data: int =64, n_dim: int =3, is_train: bool =False,
+             **plot_kwargs: Any) -> None:
+    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
+    assert isinstance(dataloader, MIDIChoraleDataLoader)
+    dataloader.set_modes(f"!fk")
+
+    maj_zs: LatentBatchTensor = t.empty(0, n_dim)
+    min_zs: LatentBatchTensor = t.empty(0, n_dim)
+    cur_n_data: int = 0
+    for xs, _, ts in dataloader:
+        zs: LatentBatchTensor = trainer.compress(xs).to("cpu")  # (batch, dim)
+        ts = ts.squeeze()  # (key, 1) -> (key, )
+        maj_zs = t.vstack([maj_zs, zs[ts == KEY_MAJOR, :n_dim]])
+        min_zs = t.vstack([min_zs, zs[ts == KEY_MINOR, :n_dim]])
+        cur_n_data += zs.shape[0]
+        if n_data <= cur_n_data:
+            break
+
+    trainer.logger(f"\nVisualize latent space with {cur_n_data} data.")
+    scatter([maj_zs, min_zs], ["major", "minor"], n_dim=n_dim, logger=trainer.logger, title=title, **plot_kwargs)
 
 
 def run(**kwargs: Any) -> None:
@@ -90,8 +131,8 @@ def run(**kwargs: Any) -> None:
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs,
                    is_save=True, logger=trainer.logger)
-    inference(trainer, title="recons_train", is_train=True, is_save=True)
-    inference(trainer, title="recons_test", is_save=True)
+    reconstruct(trainer, title="recons_train", is_train=True, is_save=True)
+    reconstruct(trainer, title="recons_test", is_save=True)
     compress(trainer, title="latent_train", is_train=True, is_save=True)
     compress(trainer, title="latent_test", is_save=True)
 
