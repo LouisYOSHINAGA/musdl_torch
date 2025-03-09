@@ -36,7 +36,7 @@ class HarmonyRNN(nn.Module):
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
 
     @t.no_grad()
-    def inference(self, prbt: PianoRollBatchTensor) -> NoteSequenceBatchTensor:
+    def harmonize(self, prbt: PianoRollBatchTensor) -> PianoRollBatchTensor:
         ys, _ = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
         ys = self.fc(ys)  # (batch, time, note)
         return F.one_hot(t.argmax(ys, dim=-1), num_classes=self.n_note_class)  # (batch, time) -> (batch, time, note)
@@ -49,7 +49,7 @@ def harmonize(trainer: Trainer, is_train: bool =False, index: int =0, title: str
     dataloader.set_modes("f!k")
 
     fns, (xs, _) = next(iter(dataloader))
-    ys: t.Tensor = trainer.inference(xs)
+    ys: PianoRollBatchTensor = trainer.model.harmonize(xs)
     x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
     y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
 
