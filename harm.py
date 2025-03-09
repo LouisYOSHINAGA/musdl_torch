@@ -3,12 +3,14 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
+from torch.utils.data import DataLoader
 from typing import Any
 from typedef import *
 from hparam import HyperParams
+from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, inference
-from plot import plot_train_log
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy
+from plot import plot_train_log, plot_pianorolls, save_midi
 
 
 class HarmonyRNN(nn.Module):
@@ -40,13 +42,31 @@ class HarmonyRNN(nn.Module):
         return F.one_hot(t.argmax(ys, dim=-1), num_classes=self.n_note_class)  # (batch, time) -> (batch, time, note)
 
 
+def harmonize(trainer: Trainer, is_train: bool =False, index: int =0, title: str|None =None,
+              **plot_kwargs: Any) -> None:
+    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
+    assert isinstance(dataloader, MIDIChoraleDataLoader)
+    dataloader.set_modes("f!k")
+
+    fns, (xs, _) = next(iter(dataloader))
+    ys: t.Tensor = trainer.inference(xs)
+    x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
+    y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
+
+    trainer.logger(f"\nTarget MIDI file for inference: {fns[index]}")
+    plot_pianorolls(x, y, n_bars=trainer.hps.data_length_bars,
+                    note_low=trainer.hps.data_note_low, note_high=trainer.hps.data_note_high,
+                    logger=trainer.logger, title=title, **plot_kwargs)
+    save_midi([x, y], logger=trainer.logger, title=title, note_offset=trainer.hps.data_note_low)
+
+
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=HarmonyRNN, opt_class=Adam,
                              loss=lossfn_cross_entropy, acc=accfn_accuracy,
                              **kwargs, data_is_sep_part=True, data_is_recons=False)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs, is_save=True, logger=trainer.logger)
-    inference(trainer, title="hrm_alt", is_save=True)
+    harmonize(trainer, title="hrm_alt", is_save=True)
 
 if __name__ == "__main__":
     fire.Fire(run)
