@@ -9,7 +9,7 @@ from typedef import *
 from hparam import HyperParams
 from data import MIDIChoraleDataLoader
 from train import Trainer
-from comp import compress
+from compmph import compress
 from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo
 from plot import plot_train_log, plot_pianoroll, save_midi
 
