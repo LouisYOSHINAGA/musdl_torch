@@ -48,6 +48,7 @@ def harmonize(trainer: Trainer, is_train: bool =False, index: int =0, title: str
     assert isinstance(dataloader, MIDIChoraleDataLoader)
     dataloader.set_modes("f!k")
 
+    trainer.model.eval()
     fns, (xs, _) = next(iter(dataloader))
     ys: PianoRollBatchTensor = trainer.model.harmonize(xs)
     x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest

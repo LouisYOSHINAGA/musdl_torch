@@ -89,14 +89,6 @@ class Trainer:
         self.test_losses.append(epoch_total_loss/n_data)
         self.test_accs.append(epoch_total_n_cor/n_data)
 
-    def inference(self, xs: t.Tensor) -> t.Tensor:
-        self.model.eval()
-        return self.model.inference(xs)
-
-    def compress(self, xs: t.Tensor) -> t.Tensor:
-        self.model.eval()
-        return self.model.compress(xs)
-
     def load(self, path: str|None) -> None:
         if path is None:
             self.logger(f"The path for the model weights to be loaded is not specified.")

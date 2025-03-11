@@ -124,6 +124,7 @@ def morph(trainer: Trainer, n_intp: int, title: str ="morph", is_train: bool =Fa
     os.mkdir(f"{trainer.outdir}/{title}")
     trainer.logger(f"\nOutput directory for morphing '{trainer.outdir}/{title}' is newly made.")
 
+    trainer.model.eval()
     fns, (xs, _) = next(iter(dataloader))
     idxs: list[int] = random.sample(range(len(xs)), k=2)
     ys: PianoRollBatchTensor = trainer.model.morph(xs, idxs, n_intp).to("cpu")[:, :, :-1]  # remove rest
@@ -139,6 +140,7 @@ def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwa
     os.mkdir(f"{trainer.outdir}/{title}")
     trainer.logger(f"\nOutput directory for generation '{trainer.outdir}/{title}' is newly made.")
 
+    trainer.model.eval()
     ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
     trainer.logger(f"{'\n' if title is None else ''}Generate {n_sample} samples.")
     for i in range(n_sample):

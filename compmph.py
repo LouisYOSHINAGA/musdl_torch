@@ -91,6 +91,7 @@ def reconstruct(trainer: Trainer, title: str|None =None, index: int =0, is_train
     assert isinstance(dataloader, MIDIChoraleDataLoader)
     dataloader.set_modes("f!k")
 
+    trainer.model.eval()
     fns, (xs, _) = next(iter(dataloader))
     ys: PianoRollBatchTensor = trainer.model.reconstruct(xs)
     x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
@@ -108,11 +109,12 @@ def compress(trainer: Trainer, title: str|None =None, n_data: int =64, n_dim: in
     assert isinstance(dataloader, MIDIChoraleDataLoader)
     dataloader.set_modes(f"!fk")
 
+    trainer.model.eval()
     maj_zs: LatentBatchTensor = t.empty(0, n_dim)
     min_zs: LatentBatchTensor = t.empty(0, n_dim)
     cur_n_data: int = 0
     for xs, _, ts in dataloader:
-        zs: LatentBatchTensor = trainer.compress(xs).to("cpu")  # (batch, dim)
+        zs: LatentBatchTensor = trainer.model.compress(xs).to("cpu")  # (batch, dim)
         ts = ts.squeeze()  # (key, 1) -> (key, )
         maj_zs = t.vstack([maj_zs, zs[ts == KEY_MAJOR, :n_dim]])
         min_zs = t.vstack([min_zs, zs[ts == KEY_MINOR, :n_dim]])

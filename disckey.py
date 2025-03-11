@@ -37,12 +37,12 @@ class KeyDiscNet(nn.Module):
         return self.kdnet(self.preprocess(prbt).to(self.device)).squeeze()  # (batch, )
 
     @t.no_grad()
-    def inference(self, prbt: PianoRollBatchTensor) -> t.Tensor:
+    def discriminate(self, prbt: PianoRollBatchTensor) -> t.Tensor:
         kmbt: t.Tensor = self.forward(prbt)
         return (kmbt >= 0.5).int()
 
 
-def print_compare(trainer: Trainer) -> None:
+def discriminate(trainer: Trainer) -> None:
     assert isinstance(trainer.test_dataloader, MIDIChoraleDataLoader)
     trainer.test_dataloader.set_modes("f")
 
@@ -53,9 +53,10 @@ def print_compare(trainer: Trainer) -> None:
     n_false_neg: int = 0
     n_true_neg: int = 0
 
+    trainer.model.eval()
     trainer.logger(f"\n{'=' * 60}")
     for filenames, (prbt, tkmbt) in trainer.test_dataloader:
-        pkmbt: t.Tensor = trainer.inference(prbt)
+        pkmbt: t.Tensor = trainer.model.discriminate(prbt)
         tkmbt = tkmbt.int().squeeze()
         n_data += len(prbt)
         for filename, pkm, tkm in zip(filenames, pkmbt, tkmbt):
@@ -86,7 +87,7 @@ def run(**kwargs: Any) -> None:
                              **kwargs, data_is_sep_part=False, conf="!fk")
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs, is_save=True, logger=trainer.logger)
-    print_compare(trainer)
+    discriminate(trainer)
 
 if __name__ == "__main__":
     fire.Fire(run)
