@@ -131,10 +131,9 @@ def morph(trainer: Trainer, n_intp: int, title: str ="morph", is_train: bool =Fa
 
     trainer.logger(f"{'\n' if title is None else ''}Target MIDI files for morphing: {fns[idxs[0]]}, {fns[idxs[1]]}")
     for i in range(n_intp):
-        plot_pianoroll(ys[i], n_bars=trainer.hps.data_length_bars,
-                       note_low=trainer.hps.data_note_low, note_high=trainer.hps.data_note_high,
-                       logger=trainer.logger, title=f"{title}/{title}_{i}_{n_intp-1}", **plot_kwargs)
-        save_midi([ys[i]], logger=trainer.logger, title=f"{title}/{title}_{i}_{n_intp-1}", note_offset=trainer.hps.data_note_low)
+        title_i = f"{title}/{title}_{i}_{n_intp-1}"
+        plot_pianoroll(ys[i], hps=trainer.hps, logger=trainer.logger, title=title_i, **plot_kwargs)
+        save_midi([ys[i]], logger=trainer.logger, title=title_i, note_offset=trainer.hps.data_note_low)
 
 def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwargs: Any) -> None:
     os.mkdir(f"{trainer.outdir}/{title}")
@@ -144,10 +143,9 @@ def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwa
     ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
     trainer.logger(f"{'\n' if title is None else ''}Generate {n_sample} samples.")
     for i in range(n_sample):
-        plot_pianoroll(ys[i], n_bars=trainer.hps.data_length_bars,
-                       note_low=trainer.hps.data_note_low, note_high=trainer.hps.data_note_high,
-                       logger=trainer.logger, title=f"{title}/{title}_{i}_{n_sample-1}", **plot_kwargs)
-        save_midi([ys[i]], logger=trainer.logger, title=f"{title}/{title}_{i}_{n_sample-1}", note_offset=trainer.hps.data_note_low)
+        title_i = f"{title}/{title}_{i}_{n_sample-1}"
+        plot_pianoroll(ys[i], hps=trainer.hps, logger=trainer.logger, title=title_i, **plot_kwargs)
+        save_midi([ys[i]], logger=trainer.logger, title=title_i, note_offset=trainer.hps.data_note_low)
 
 
 def run(**kwargs: Any) -> None:

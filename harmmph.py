@@ -55,9 +55,7 @@ def harmonize(trainer: Trainer, is_train: bool =False, index: int =0, title: str
     y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
 
     trainer.logger(f"\nTarget MIDI file for inference: {fns[index]}")
-    plot_pianorolls(x, y, n_bars=trainer.hps.data_length_bars,
-                    note_low=trainer.hps.data_note_low, note_high=trainer.hps.data_note_high,
-                    logger=trainer.logger, title=title, **plot_kwargs)
+    plot_pianorolls(x, y, hps=trainer.hps, logger=trainer.logger, title=title, **plot_kwargs)
     save_midi([x, y], logger=trainer.logger, title=title, note_offset=trainer.hps.data_note_low)
 
 

@@ -2,14 +2,14 @@ import pretty_midi as pm
 import soundfile as sf
 import matplotlib.pyplot as plt
 from typedef import *
+from hparam import HyperParams
 from log import Logger
 
 
 def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
                    test_losses: TrainMetricLog, test_accs: TrainMetricLog,
-                   figsize: tuple[float, float] =(14, 5),
-                   is_save: bool =False, logger: Logger|None =None, title: str ="loss_acc",
-                   is_show: bool =False) -> None:
+                   figsize: tuple[float, float] =(14, 5), is_show: bool =False,
+                   is_save: bool =False, logger: Logger|None =None, title: str ="loss_acc") -> None:
     if not is_save and not is_show:
         return
 
@@ -40,17 +40,17 @@ def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
         plt.close()
 
 
-def plot_pianoroll(pr: PianoRoll|PianoRollTensor, n_bars: int, note_low: int, note_high: int,
-                   figsize: tuple[float, float] =(7, 5),
-                   is_save: bool =False, logger: Logger|None =None, title: str|None =None,
-                   is_show: bool =False) -> None:
+def plot_pianoroll(pr: PianoRoll|PianoRollTensor, hps: HyperParams,
+                   figsize: tuple[float, float] =(7, 5), is_show: bool =False,
+                   is_save: bool =False, logger: Logger|None =None, title: str|None =None) -> None:
     if not is_save and not is_show:
         return
 
     _, ax = plt.subplots(figsize=figsize)
     ax.set_xlabel("bar")
     ax.set_ylabel("note")
-    ax.imshow(pr.T, origin="lower", aspect="auto", extent=[0, n_bars, note_low, note_high])  # type: ignore
+    ax.imshow(pr.T, origin="lower", aspect="auto",
+              extent=[0, hps.data_length_bars, hps.data_note_low, hps.data_note_high])  # type: ignore
     plt.tight_layout()
 
     if is_save:
@@ -63,10 +63,9 @@ def plot_pianoroll(pr: PianoRoll|PianoRollTensor, n_bars: int, note_low: int, no
     else:
         plt.close()
 
-def plot_pianorolls(pr0: PianoRoll|PianoRollTensor, pr1: PianoRoll|PianoRollTensor, n_bars: int,
-                    note_low: int, note_high: int, figsize: tuple[float, float] =(14, 5),
-                    is_save: bool =False, logger: Logger|None =None, title: str|None =None,
-                    is_show: bool =False) -> None:
+def plot_pianorolls(pr0: PianoRoll|PianoRollTensor, pr1: PianoRoll|PianoRollTensor, hps: HyperParams,
+                    figsize: tuple[float, float] =(14, 5), is_show: bool =False,
+                    is_save: bool =False, logger: Logger|None =None, title: str|None =None) -> None:
     if not is_save and not is_show:
         return
 
@@ -74,12 +73,14 @@ def plot_pianorolls(pr0: PianoRoll|PianoRollTensor, pr1: PianoRoll|PianoRollTens
     axl = fig.add_subplot(1, 2, 1)
     axl.set_xlabel("bar")
     axl.set_ylabel("note")
-    axl.imshow(pr0.T, origin="lower", aspect="auto", extent=[0, n_bars, note_low, note_high])  # type: ignore
+    axl.imshow(pr0.T, origin="lower", aspect="auto",
+              extent=[0, hps.data_length_bars, hps.data_note_low, hps.data_note_high])  # type: ignore
 
     axr = fig.add_subplot(1, 2, 2)
     axr.set_xlabel("bar")
     axr.set_ylabel("note")
-    axr.imshow(pr1.T, origin="lower", aspect="auto", extent=[0, n_bars, note_low, note_high])  # type: ignore
+    axr.imshow(pr1.T, origin="lower", aspect="auto",
+              extent=[0, hps.data_length_bars, hps.data_note_low, hps.data_note_high])  # type: ignore
     plt.tight_layout()
 
     if is_save:
@@ -93,9 +94,9 @@ def plot_pianorolls(pr0: PianoRoll|PianoRollTensor, pr1: PianoRoll|PianoRollTens
         plt.close()
 
 
-def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, title: str|None =None,
+def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger,
               resolution: int =480, note_offset: int =0, sr: int =44100,
-              midext: str =".mid", wavext: str =".wav") -> None:
+              title: str|None =None, midext: str =".mid", wavext: str =".wav") -> None:
     midi: pm.PrettyMIDI = pm.PrettyMIDI(resolution=resolution)
     for pr in prl:
         assert len(pr.shape) == 2  # (time, note)
@@ -114,9 +115,8 @@ def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger, title: str|N
 
 
 def scatter(datas: list[LatentBatchTensor], labels: list[str], n_dim: int =2,
-            figsize: tuple[float, float] =(7, 5),
-            is_save: bool =False, logger: Logger|None =None, title: str|None =None,
-            is_show: bool =False) -> None:
+            figsize: tuple[float, float] =(7, 5), is_show: bool =False,
+            is_save: bool =False, logger: Logger|None =None, title: str|None =None) -> None:
     assert len(datas) == len(labels)
     assert datas[0].shape[1] >= n_dim and n_dim in [2, 3]
 
