@@ -1,11 +1,12 @@
 import torch.nn as nn
 import torch.nn.functional as F
 from torcheval.metrics.functional import binary_accuracy, multiclass_accuracy
+from torch.utils.data import DataLoader
 from typing import Any
 from typedef import *
 from hparam import HyperParams, setup_hyperparams
 from log import Logger, setup_logger
-from data import setup_dataloaders
+from data import setup_dataloaders, MIDIChoraleDataLoader
 from train import Trainer
 
 
@@ -49,3 +50,10 @@ def accfn_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:
 
 def accfn_accuracy_for_elbo(inputs: tuple[t.Tensor, t.Tensor], target: t.Tensor) -> t.Tensor:
     return multiclass_accuracy(inputs[0], target.reshape(-1))
+
+
+def get_midi_chorale_dataloader(trainer: Trainer, is_train: bool =False, mode: str ="") -> MIDIChoraleDataLoader:
+    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
+    assert isinstance(dataloader, MIDIChoraleDataLoader)
+    dataloader.set_modes(mode)
+    return dataloader

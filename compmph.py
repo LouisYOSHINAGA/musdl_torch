@@ -3,13 +3,12 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.utils.data import DataLoader
 from typing import Any
 from typedef import *
 from hparam import HyperParams
 from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, get_midi_chorale_dataloader
 from plot import plot_train_log, plot_pianorolls, save_midi, scatter
 
 
@@ -87,12 +86,10 @@ class AutoEncoder(nn.Module):
 
 def reconstruct(trainer: Trainer, title: str|None =None, index: int =0, is_train: bool =False,
               **plot_kwargs: Any) -> None:
-    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
-    assert isinstance(dataloader, MIDIChoraleDataLoader)
-    dataloader.set_modes("f!k")
-
     trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="f!k")
     fns, (xs, _) = next(iter(dataloader))
+
     ys: PianoRollBatchTensor = trainer.model.reconstruct(xs)
     x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
     y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
@@ -103,11 +100,9 @@ def reconstruct(trainer: Trainer, title: str|None =None, index: int =0, is_train
 
 def compress(trainer: Trainer, title: str|None =None, n_data: int =64, n_dim: int =3, is_train: bool =False,
              **plot_kwargs: Any) -> None:
-    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
-    assert isinstance(dataloader, MIDIChoraleDataLoader)
-    dataloader.set_modes(f"!fk")
-
     trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="!fk")
+
     maj_zs: LatentBatchTensor = t.empty(0, n_dim)
     min_zs: LatentBatchTensor = t.empty(0, n_dim)
     cur_n_data: int = 0

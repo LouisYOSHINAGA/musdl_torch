@@ -7,7 +7,7 @@ from typedef import *
 from hparam import HyperParams
 from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import setup, lossfn_binary_cross_entropy, accfn_binary_accuracy
+from util import setup, lossfn_binary_cross_entropy, accfn_binary_accuracy, get_midi_chorale_dataloader
 from plot import plot_train_log
 
 
@@ -43,9 +43,6 @@ class KeyDiscNet(nn.Module):
 
 
 def discriminate(trainer: Trainer) -> None:
-    assert isinstance(trainer.test_dataloader, MIDIChoraleDataLoader)
-    trainer.test_dataloader.set_modes("f")
-
     label2keymode: list[str] = ["Major", "Minor"]
     n_data: int = 0
     n_true_pos: int = 0
@@ -54,11 +51,14 @@ def discriminate(trainer: Trainer) -> None:
     n_true_neg: int = 0
 
     trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=False, mode="f")
+
     trainer.logger(f"\n{'=' * 60}")
-    for filenames, (prbt, tkmbt) in trainer.test_dataloader:
+    for filenames, (prbt, tkmbt) in dataloader:
         pkmbt: t.Tensor = trainer.model.discriminate(prbt)
         tkmbt = tkmbt.int().squeeze()
         n_data += len(prbt)
+
         for filename, pkm, tkm in zip(filenames, pkmbt, tkmbt):
             trainer.logger((
                 f"{filename:>15}: "

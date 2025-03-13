@@ -3,13 +3,12 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.utils.data import DataLoader
 from typing import Any
 from typedef import *
 from hparam import HyperParams
 from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, get_midi_chorale_dataloader
 from plot import plot_train_log, plot_pianorolls, save_midi
 
 
@@ -44,12 +43,10 @@ class HarmonyRNN(nn.Module):
 
 def harmonize(trainer: Trainer, is_train: bool =False, index: int =0, title: str|None =None,
               **plot_kwargs: Any) -> None:
-    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
-    assert isinstance(dataloader, MIDIChoraleDataLoader)
-    dataloader.set_modes("f!k")
-
     trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="f!k")
     fns, (xs, _) = next(iter(dataloader))
+
     ys: PianoRollBatchTensor = trainer.model.harmonize(xs)
     x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
     y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest

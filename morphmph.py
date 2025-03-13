@@ -3,14 +3,13 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.utils.data import DataLoader
 from typing import Any
 from typedef import *
 from hparam import HyperParams
 from data import MIDIChoraleDataLoader
 from train import Trainer
 from compmph import compress
-from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo
+from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, get_midi_chorale_dataloader
 from plot import plot_train_log, plot_pianoroll, save_midi
 
 
@@ -117,15 +116,13 @@ class VariationalAutoEncoder(nn.Module):
 
 
 def morph(trainer: Trainer, n_intp: int, title: str ="morph", is_train: bool =False, **plot_kwargs: Any) -> None:
-    dataloader: DataLoader = trainer.train_dataloader if is_train else trainer.test_dataloader
-    assert isinstance(dataloader, MIDIChoraleDataLoader)
-    dataloader.set_modes("f!k")
-
     os.mkdir(f"{trainer.outdir}/{title}")
     trainer.logger(f"\nOutput directory for morphing '{trainer.outdir}/{title}' is newly made.")
 
     trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="f!k")
     fns, (xs, _) = next(iter(dataloader))
+
     idxs: list[int] = random.sample(range(len(xs)), k=2)
     ys: PianoRollBatchTensor = trainer.model.morph(xs, idxs, n_intp).to("cpu")[:, :, :-1]  # remove rest
 
