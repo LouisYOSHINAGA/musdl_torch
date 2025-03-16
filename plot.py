@@ -1,9 +1,11 @@
 import pretty_midi as pm
 import soundfile as sf
 import matplotlib.pyplot as plt
+from typing import Any
 from typedef import *
 from hparam import HyperParams
 from log import Logger
+from train import Trainer
 
 
 def plot_train_log(train_losses: TrainMetricLog, train_accs: TrainMetricLog,
@@ -93,6 +95,11 @@ def plot_pianorolls(pr0: PianoRoll|PianoRollTensor, pr1: PianoRoll|PianoRollTens
     else:
         plt.close()
 
+def plot_batch_pianoroll(prbt: PianoRollBatchTensor, trainer: Trainer, title: str, **plot_kwargs: Any) -> None:
+    for i in range(len(prbt)):
+        plot_pianoroll(prbt[i], hps=trainer.hps, logger=trainer.logger,
+                       title=f"{title}/{title}_{i}_{len(prbt)-1}", **plot_kwargs)
+
 
 def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger,
               resolution: int =480, note_offset: int =0, sr: int =44100,
@@ -112,6 +119,10 @@ def save_midi(prl: list[PianoRoll|PianoRollTensor], logger: Logger,
     logger(f"Midi data is saved in '{save_path}{midext}'.")
     sf.write(f"{save_path}{wavext}", midi.synthesize(fs=sr), samplerate=sr)
     logger(f"Rendered wave data is saved in '{save_path}{wavext}'.")
+
+def save_batch_midi(prbt: PianoRollBatchTensor, trainer: Trainer, title: str) -> None:
+    for i in range(len(prbt)):
+        save_midi([prbt[i]], logger=trainer.logger, title=title, note_offset=trainer.hps.data_note_low)
 
 
 def scatter(datas: list[LatentBatchTensor], labels: list[str], n_dim: int =2,

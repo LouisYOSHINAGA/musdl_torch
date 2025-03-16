@@ -10,7 +10,7 @@ from data import MIDIChoraleDataLoader
 from train import Trainer
 from compmph import compress
 from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, get_midi_chorale_dataloader
-from plot import plot_train_log, plot_pianoroll, save_midi
+from plot import plot_train_log, plot_batch_pianoroll, save_batch_midi
 
 
 class Encoder(nn.Module):
@@ -127,10 +127,8 @@ def morph(trainer: Trainer, n_intp: int, title: str ="morph", is_train: bool =Fa
     ys: PianoRollBatchTensor = trainer.model.morph(xs, idxs, n_intp).to("cpu")[:, :, :-1]  # remove rest
 
     trainer.logger(f"{'\n' if title is None else ''}Target MIDI files for morphing: {fns[idxs[0]]}, {fns[idxs[1]]}")
-    for i in range(n_intp):
-        title_i = f"{title}/{title}_{i}_{n_intp-1}"
-        plot_pianoroll(ys[i], hps=trainer.hps, logger=trainer.logger, title=title_i, **plot_kwargs)
-        save_midi([ys[i]], logger=trainer.logger, title=title_i, note_offset=trainer.hps.data_note_low)
+    plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
+    save_batch_midi(ys, trainer=trainer, title=title)
 
 def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwargs: Any) -> None:
     os.mkdir(f"{trainer.outdir}/{title}")
@@ -138,11 +136,10 @@ def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwa
 
     trainer.model.eval()
     ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
+
     trainer.logger(f"{'\n' if title is None else ''}Generate {n_sample} samples.")
-    for i in range(n_sample):
-        title_i = f"{title}/{title}_{i}_{n_sample-1}"
-        plot_pianoroll(ys[i], hps=trainer.hps, logger=trainer.logger, title=title_i, **plot_kwargs)
-        save_midi([ys[i]], logger=trainer.logger, title=title_i, note_offset=trainer.hps.data_note_low)
+    plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
+    save_batch_midi(ys, trainer=trainer, title=title)
 
 
 def run(**kwargs: Any) -> None:
