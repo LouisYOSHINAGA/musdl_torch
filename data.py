@@ -230,5 +230,4 @@ if __name__ == "__main__":
     print(f"Batch size = {prbt.shape}")
 
     print(f"Plot pianoroll: {fns[0]}")
-    plot_pianoroll(prbt[0], n_bars=hps.data_length_bars,
-                   note_low=hps.data_note_low, note_high=hps.data_note_high, is_show=True)
+    plot_pianoroll(prbt[0], hps=hps, is_show=True)
