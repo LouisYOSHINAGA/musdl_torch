@@ -48,14 +48,6 @@ class Trainer:
         self.save()
         return self.train_losses, self.train_accs, self.test_losses, self.test_accs
 
-    def train_only_loop(self) -> tuple[TrainMetricLog, TrainMetricLog]:
-        for epoch in tqdm(range(self.start_epoch, self.start_epoch+self.epochs),
-                          desc="training progress (training only)"):
-            self.train()
-            self.save(epoch)
-        self.save()
-        return self.train_losses, self.train_accs
-
     def train(self) -> None:
         self.model.train()
         epoch_total_loss: float = 0
