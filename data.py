@@ -8,8 +8,7 @@ from typedef import *
 from hparam import HyperParams
 from log import Logger
 
-Data: TypeAlias = tuple[PianoRollTensor, NoteSequenceTensor, KeyModeTensor] \
-                | tuple[PianoRollTensor, KeyModeTensor]
+Data: TypeAlias = tuple[PianoRollTensor, NoteSequenceTensor|PianoRollTensor, KeyModeTensor]
 
 
 class MIDIChoraleDatset(Dataset):
@@ -118,7 +117,7 @@ class MIDIChoraleDatset(Dataset):
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
-            data = t.Tensor(pr[start:end]), kmt
+            data = t.Tensor(pr[start:end]), t.Tensor(pr[start:end]), kmt
         return self.filenames[index], data
 
     def get_sequence_range(self, full_length: int) -> tuple[int, int]:
