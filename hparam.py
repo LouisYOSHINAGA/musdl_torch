@@ -67,6 +67,12 @@ default_hps = HyperParams(
     mrp_dec_bidirectional=False,
     mrp_dec_dropout=0.0,
 
+    gen_vae_model_size="small",
+    gen_vae_beta=0.001,
+    gen_vae_enc_hidden_dim=1024,
+    gen_vae_latent_dim=16,
+    gen_vae_dec_hidden_dim=1024,
+
     train_lr=0.001,
     train_epochs=1000,
     train_save_period=500,
