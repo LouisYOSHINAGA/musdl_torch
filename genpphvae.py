@@ -1,4 +1,4 @@
-import fire, os
+import fire
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,10 +7,8 @@ from typing import Any
 from typedef import *
 from hparam import HyperParams
 from train import Trainer
-from compmph import compress
-from morphmph import morph
-from util import setup, lossfn_binary_elbo, accfn_binary_accuracy_elbo
-from plot import plot_train_log, plot_batch_pianoroll, save_batch_midi
+from util import setup, lossfn_binary_elbo, accfn_binary_accuracy_elbo, compress, morph, generate
+from plot import plot_train_log
 
 
 class ConvolutionalEncoder(nn.Module):
@@ -118,6 +116,7 @@ class ConvolutionalDecoder(nn.Module):
 class ConvolutionalVariationalAutoEncoder(nn.Module):
     def __init__(self, hps: HyperParams) -> None:
         super().__init__()
+        self.device: str = hps.general_device
         self.enc: ConvolutionalEncoder = ConvolutionalEncoder(hps)
         self.dec: ConvolutionalDecoder = ConvolutionalDecoder(hps)
 
@@ -136,18 +135,6 @@ class ConvolutionalVariationalAutoEncoder(nn.Module):
     @t.no_grad()
     def generate(self, n_sample: int) -> PianoRollBatchTensor:
         return self.dec.generate(n_sample)
-
-
-def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwargs: Any) -> None:
-    os.mkdir(f"{trainer.outdir}/{title}")
-    trainer.logger(f"\nOutput directory for generation '{trainer.outdir}/{title}' is newly made.")
-
-    trainer.model.eval()
-    ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
-
-    trainer.logger(f"{'\n' if title is None else ''}Generate {n_sample} samples.")
-    plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
-    save_batch_midi(ys, trainer=trainer, title=title)
 
 
 def run(**kwargs: Any) -> None:

@@ -6,10 +6,9 @@ from torch.optim import Adam
 from typing import Any
 from typedef import *
 from hparam import HyperParams
-from data import MIDIChoraleDataLoader
 from train import Trainer
-from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, get_midi_chorale_dataloader
-from plot import plot_train_log, plot_pianorolls, save_midi, scatter
+from util import setup, rnn_general, lossfn_cross_entropy, accfn_accuracy, reconstruct, compress
+from plot import plot_train_log
 
 
 class Encoder(nn.Module):
@@ -82,41 +81,6 @@ class AutoEncoder(nn.Module):
     @t.no_grad()
     def compress(self, prbt: PianoRollBatchTensor) -> LatentBatchTensor:
         return self.enc(prbt)
-
-
-def reconstruct(trainer: Trainer, title: str|None =None, index: int =0, is_train: bool =False,
-              **plot_kwargs: Any) -> None:
-    trainer.model.eval()
-    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="f!k")
-    fns, (xs, _) = next(iter(dataloader))
-
-    ys: PianoRollBatchTensor = trainer.model.reconstruct(xs)
-    x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
-    y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
-
-    trainer.logger(f"\nTarget MIDI file for inference: {fns[index]}")
-    plot_pianorolls(x, y, hps=trainer.hps, logger=trainer.logger, title=title, **plot_kwargs)
-    save_midi([x, y], logger=trainer.logger, title=title, note_offset=trainer.hps.data_note_low)
-
-def compress(trainer: Trainer, title: str|None =None, n_data: int =64, n_dim: int =3, is_train: bool =False,
-             **plot_kwargs: Any) -> None:
-    trainer.model.eval()
-    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="!fk")
-
-    maj_zs: LatentBatchTensor = t.empty(0, n_dim)
-    min_zs: LatentBatchTensor = t.empty(0, n_dim)
-    cur_n_data: int = 0
-    for xs, _, ts in dataloader:
-        zs: LatentBatchTensor = trainer.model.compress(xs).to("cpu")  # (batch, dim)
-        ts = ts.squeeze()  # (key, 1) -> (key, )
-        maj_zs = t.vstack([maj_zs, zs[ts == KEY_MAJOR, :n_dim]])
-        min_zs = t.vstack([min_zs, zs[ts == KEY_MINOR, :n_dim]])
-        cur_n_data += zs.shape[0]
-        if n_data <= cur_n_data:
-            break
-
-    trainer.logger(f"\nVisualize latent space with {cur_n_data} data.")
-    scatter([maj_zs, min_zs], ["major", "minor"], n_dim=n_dim, logger=trainer.logger, title=title, **plot_kwargs)
 
 
 def run(**kwargs: Any) -> None:

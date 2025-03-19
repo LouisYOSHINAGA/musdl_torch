@@ -1,3 +1,4 @@
+import os, random
 import torch.nn as nn
 import torch.nn.functional as F
 from torcheval.metrics.functional import binary_accuracy, multiclass_accuracy
@@ -8,6 +9,7 @@ from hparam import HyperParams, setup_hyperparams
 from log import Logger, setup_logger
 from data import setup_dataloaders, MIDIChoraleDataLoader
 from train import Trainer
+from plot import plot_pianorolls, plot_batch_pianoroll, save_midi, save_batch_midi, scatter
 
 
 def setup(model_class: type[nn.Module], opt_class: type[Optimizer],
@@ -65,3 +67,63 @@ def get_midi_chorale_dataloader(trainer: Trainer, is_train: bool =False, mode: s
     assert isinstance(dataloader, MIDIChoraleDataLoader)
     dataloader.set_modes(mode)
     return dataloader
+
+def reconstruct(trainer: Trainer, title: str|None =None, index: int =0, is_train: bool =False,
+              **plot_kwargs: Any) -> None:
+    trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="f!k")
+    fns, (xs, _) = next(iter(dataloader))
+
+    ys: PianoRollBatchTensor = trainer.model.reconstruct(xs)
+    x: PianoRollTensor = xs[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
+    y: PianoRollTensor = ys[index, :, :-1].to("cpu")  # get `index`-th data, remove rest
+
+    trainer.logger(f"\nTarget MIDI file for inference: {fns[index]}")
+    plot_pianorolls(x, y, hps=trainer.hps, logger=trainer.logger, title=title, **plot_kwargs)
+    save_midi([x, y], logger=trainer.logger, title=title, note_offset=trainer.hps.data_note_low)
+
+def compress(trainer: Trainer, title: str|None =None, n_data: int =64, n_dim: int =3, is_train: bool =False,
+             **plot_kwargs: Any) -> None:
+    trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="!fk")
+
+    maj_zs: LatentBatchTensor = t.empty(0, n_dim)
+    min_zs: LatentBatchTensor = t.empty(0, n_dim)
+    cur_n_data: int = 0
+    for xs, _, ts in dataloader:
+        zs: LatentBatchTensor = trainer.model.compress(xs).to("cpu")  # (batch, dim)
+        ts = ts.squeeze()  # (key, 1) -> (key, )
+        maj_zs = t.vstack([maj_zs, zs[ts == KEY_MAJOR, :n_dim]])
+        min_zs = t.vstack([min_zs, zs[ts == KEY_MINOR, :n_dim]])
+        cur_n_data += zs.shape[0]
+        if n_data <= cur_n_data:
+            break
+
+    trainer.logger(f"\nVisualize latent space with {cur_n_data} data.")
+    scatter([maj_zs, min_zs], ["major", "minor"], n_dim=n_dim, logger=trainer.logger, title=title, **plot_kwargs)
+
+def morph(trainer: Trainer, n_intp: int, title: str ="morph", is_train: bool =False, **plot_kwargs: Any) -> None:
+    os.mkdir(f"{trainer.outdir}/{title}")
+    trainer.logger(f"\nOutput directory for morphing '{trainer.outdir}/{title}' is newly made.")
+
+    trainer.model.eval()
+    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="f!k")
+    fns, (xs, _) = next(iter(dataloader))
+
+    idxs: list[int] = random.sample(range(len(xs)), k=2)
+    ys: PianoRollBatchTensor = trainer.model.morph(xs, idxs, n_intp).to("cpu")[:, :, :-1]  # remove rest
+
+    trainer.logger(f"{'\n' if title is None else ''}Target MIDI files for morphing: {fns[idxs[0]]}, {fns[idxs[1]]}")
+    plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
+    save_batch_midi(ys, trainer=trainer, title=title)
+
+def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwargs: Any) -> None:
+    os.mkdir(f"{trainer.outdir}/{title}")
+    trainer.logger(f"\nOutput directory for generation '{trainer.outdir}/{title}' is newly made.")
+
+    trainer.model.eval()
+    ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
+
+    trainer.logger(f"{'\n' if title is None else ''}Generate {n_sample} samples.")
+    plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
+    save_batch_midi(ys, trainer=trainer, title=title)

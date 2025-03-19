@@ -1,4 +1,4 @@
-import fire, os, random
+import fire
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,11 +6,9 @@ from torch.optim import Adam
 from typing import Any
 from typedef import *
 from hparam import HyperParams
-from data import MIDIChoraleDataLoader
 from train import Trainer
-from compmph import compress
-from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, get_midi_chorale_dataloader
-from plot import plot_train_log, plot_batch_pianoroll, save_batch_midi
+from util import setup, rnn_general, lossfn_elbo, accfn_accuracy_for_elbo, compress, morph, generate
+from plot import plot_train_log
 
 
 class Encoder(nn.Module):
@@ -32,13 +30,13 @@ class Encoder(nn.Module):
         self.fc_mean: nn.Module = nn.Linear(hps.mrp_enc_rnn_hidden_size, hps.mrp_hidden_size)
         self.fc_lnvar: nn.Module = nn.Linear(hps.mrp_enc_rnn_hidden_size, hps.mrp_hidden_size)  # ln(sigma^2) = 2 * ln(sigma)
 
-    def forward(self, prbt: PianoRollBatchTensor) -> tuple[t.Tensor, t.Tensor]:
+    def forward(self, prbt: PianoRollBatchTensor) -> tuple[LatentBatchTensor, t.Tensor]:
         ys, _ = self.rnn(prbt.to(self.device))  # (batch, time, dim), (layer, time, dim)
         mean: t.Tensor = self.fc_mean(ys[:, -1, :])  # (batch, dim)
         lnvar: t.Tensor = self.fc_lnvar(ys[:, -1, :])  # (batch, dim)
         return self.reparameterize(mean, lnvar), self.kl_loss(mean, lnvar)
 
-    def reparameterize(self, mean: t.Tensor, lnvar: t.Tensor) -> t.Tensor:
+    def reparameterize(self, mean: t.Tensor, lnvar: t.Tensor) -> LatentBatchTensor:
         return mean + t.exp(lnvar/2) * t.randn_like(lnvar)
 
     def kl_loss(self, mean: t.Tensor, lnvar: t.Tensor) -> t.Tensor:
@@ -65,7 +63,7 @@ class Decoder(nn.Module):
         )
         self.fc: nn.Module = nn.Linear(hps.mrp_dec_rnn_hidden_size, self.n_note_class)
 
-    def forward(self, zs: t.Tensor) -> PianoRollBatchTensor:
+    def forward(self, zs: LatentBatchTensor) -> PianoRollBatchTensor:
         ys: t.Tensor = zs.unsqueeze(1).repeat(1, self.sequence_length, 1)  # (batch, 1, dim) -> (batch, time, dim)
         ys, _ = self.rnn(ys)  # (batch, time, dim), (layer, time, dim)
         return self.fc(ys).reshape(-1, self.n_note_class)  # (batch, time, note) -> (batch*time, note)
@@ -107,39 +105,12 @@ class VariationalAutoEncoder(nn.Module):
         return self.dec.morph(self.enc(prbt)[0], idxs, n_intp)
 
     @t.no_grad()
-    def compress(self, prbt: PianoRollBatchTensor) -> t.Tensor:
+    def compress(self, prbt: PianoRollBatchTensor) -> LatentBatchTensor:
         return self.enc(prbt)[0]
 
     @t.no_grad()
     def generate(self, n_sample: int) -> PianoRollBatchTensor:
         return self.dec.generate(n_sample)
-
-
-def morph(trainer: Trainer, n_intp: int, title: str ="morph", is_train: bool =False, **plot_kwargs: Any) -> None:
-    os.mkdir(f"{trainer.outdir}/{title}")
-    trainer.logger(f"\nOutput directory for morphing '{trainer.outdir}/{title}' is newly made.")
-
-    trainer.model.eval()
-    dataloader: MIDIChoraleDataLoader = get_midi_chorale_dataloader(trainer, is_train=is_train, mode="f!k")
-    fns, (xs, _) = next(iter(dataloader))
-
-    idxs: list[int] = random.sample(range(len(xs)), k=2)
-    ys: PianoRollBatchTensor = trainer.model.morph(xs, idxs, n_intp).to("cpu")[:, :, :-1]  # remove rest
-
-    trainer.logger(f"{'\n' if title is None else ''}Target MIDI files for morphing: {fns[idxs[0]]}, {fns[idxs[1]]}")
-    plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
-    save_batch_midi(ys, trainer=trainer, title=title)
-
-def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwargs: Any) -> None:
-    os.mkdir(f"{trainer.outdir}/{title}")
-    trainer.logger(f"\nOutput directory for generation '{trainer.outdir}/{title}' is newly made.")
-
-    trainer.model.eval()
-    ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
-
-    trainer.logger(f"{'\n' if title is None else ''}Generate {n_sample} samples.")
-    plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
-    save_batch_midi(ys, trainer=trainer, title=title)
 
 
 def run(**kwargs: Any) -> None:
