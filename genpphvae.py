@@ -27,17 +27,51 @@ class ConvolutionalEncoder(nn.Module):
                     kernel_size=(1, hps.data_note_high-hps.data_note_low), stride=(1, 1), padding=0
                 ),  # (batch, 1, seq=16, note) -> (batch, dim, seq=16, 1)
                 nn.ReLU(),
+
                 nn.Conv2d(
                     in_channels=self.hidden_dim, out_channels=self.hidden_dim,
                     kernel_size=(4, 1), stride=(4, 1), padding=0
                 ),  # (batch, dim, 16, 1) -> (batch, dim, 4, 1)
                 nn.ReLU(),
+
                 nn.Conv2d(
                     in_channels=self.hidden_dim, out_channels=self.hidden_dim,
                     kernel_size=(4, 1), stride=(4, 1), padding=0
                 ),  # (batch, dim, 4, 1) -> (batch, dim, 1, 1)
                 nn.ReLU()
             )
+        elif self.model_size == "large":
+            self.convs: nn.Sequential = nn.Sequential(
+                nn.Conv2d(
+                    in_channels=1, out_channels=self.hidden_dim,
+                    kernel_size=(1, hps.data_note_high-hps.data_note_low), stride=(1, 1), padding=0
+                ),  # (batch, 1, seq=32, note) -> (batch, dim, seq=32, 1)
+                nn.BatchNorm2d(num_features=self.hidden_dim, momentum=0.01),
+                nn.LeakyReLU(negative_slope=0.3),
+
+                nn.Conv2d(
+                    in_channels=self.hidden_dim, out_channels=self.hidden_dim,
+                    kernel_size=(2, 1), stride=(2, 1), padding=0
+                ),  # (batch, dim, 32, 1) -> (batch, dim, 16, 1)
+                nn.BatchNorm2d(num_features=self.hidden_dim, momentum=0.01),
+                nn.LeakyReLU(negative_slope=0.3),
+
+                nn.Conv2d(
+                    in_channels=self.hidden_dim, out_channels=self.hidden_dim,
+                    kernel_size=(4, 1), stride=(4, 1), padding=0
+                ),  # (batch, dim, 16, 1) -> (batch, dim, 4, 1)
+                nn.BatchNorm2d(num_features=self.hidden_dim, momentum=0.01),
+                nn.LeakyReLU(negative_slope=0.3),
+
+                nn.Conv2d(
+                    in_channels=self.hidden_dim, out_channels=self.hidden_dim,
+                    kernel_size=(4, 1), stride=(4, 1), padding=0
+                ),  # (batch, dim, 4, 1) -> (batch, dim, 1, 1)
+                nn.BatchNorm2d(num_features=self.hidden_dim, momentum=0.01),
+                nn.LeakyReLU(negative_slope=0.3),
+                nn.Dropout(0.3)
+            )
+
         else:
             assert False, f"Unexpected model size '{self.model_size}'."
 
@@ -46,7 +80,7 @@ class ConvolutionalEncoder(nn.Module):
 
     def forward(self, prbt: PianoRollBatchTensor) -> tuple[LatentBatchTensor, t.Tensor]:
         assert self.model_size == "small" and prbt.shape[1] == 16 \
-            or self.model_size == "large" and prbt.shape[1] == 48
+            or self.model_size == "large" and prbt.shape[1] == 32
 
         ys: t.Tensor = prbt.unsqueeze(1).to(self.device)  # (batch, 1, seq, note)
         ys = self.convs(ys)  # (batch, dim, 1, 1)
@@ -80,22 +114,51 @@ class ConvolutionalDecoder(nn.Module):
                     kernel_size=(4, 1), stride=(4, 1), padding=0
                 ),  # (batch, dim, 1, 1) -> (batch, dim, 4, 1)
                 nn.ReLU(),
+
                 nn.ConvTranspose2d(
                     in_channels=self.hidden_dim, out_channels=self.hidden_dim,
                     kernel_size=(4, 1), stride=(4, 1), padding=0
                 ),  # (batch, dim, 4, 1) -> (batch, dim, 16, 1)
                 nn.ReLU(),
+
                 nn.ConvTranspose2d(
                     in_channels=self.hidden_dim, out_channels=1,
                     kernel_size=(1, hps.data_note_high-hps.data_note_low), stride=(1, 1), padding=0
-                ),  # (batch, dim, 16=seq, 1) -> (batch, 1, 16=seq, note)
-                nn.ReLU()
+                )  # (batch, dim, 16=seq, 1) -> (batch, 1, 16=seq, note)
+            )
+        elif self.model_size == "large":
+            self.convs: nn.Sequential = nn.Sequential(
+                nn.ConvTranspose2d(
+                    in_channels=self.hidden_dim, out_channels=self.hidden_dim,
+                    kernel_size=(4, 1), stride=(4, 1), padding=0
+                ),  # (batch, dim, 1, 1) -> (batch, dim, 4, 1)
+                nn.BatchNorm2d(num_features=self.hidden_dim, momentum=0.01),
+                nn.LeakyReLU(negative_slope=0.3),
+
+                nn.ConvTranspose2d(
+                    in_channels=self.hidden_dim, out_channels=self.hidden_dim,
+                    kernel_size=(4, 1), stride=(4, 1), padding=0
+                ),  # (batch, dim, 4, 1) -> (batch, dim, 16, 1)
+                nn.BatchNorm2d(num_features=self.hidden_dim, momentum=0.01),
+                nn.LeakyReLU(negative_slope=0.3),
+
+                nn.ConvTranspose2d(
+                    in_channels=self.hidden_dim, out_channels=self.hidden_dim,
+                    kernel_size=(2, 1), stride=(2, 1), padding=0
+                ),  # (batch, dim, 16, 1) -> (batch, dim, 32, 1)
+                nn.BatchNorm2d(num_features=self.hidden_dim, momentum=0.01),
+                nn.LeakyReLU(negative_slope=0.3),
+
+                nn.ConvTranspose2d(
+                    in_channels=self.hidden_dim, out_channels=1,
+                    kernel_size=(1, hps.data_note_high-hps.data_note_low), stride=(1, 1), padding=0
+                )  # (batch, dim, 32=seq, 1) -> (batch, 1, 32=seq, note)
             )
         else:
             assert False, f"Unexpected model size '{self.model_size}'."
 
     def forward(self, zs: LatentBatchTensor) -> PianoRollBatchTensor:
-        ys: t.Tensor = self.fc(zs).reshape(-1, self.hidden_dim, 1, 1)  # (batch, dim) -> (batch, dim, 1, 1)
+        ys: t.Tensor = F.relu(self.fc(zs)).reshape(-1, self.hidden_dim, 1, 1)  # (batch, dim) -> (batch, dim, 1, 1)
         ys = self.convs(ys)  # (batch, 1, seq, note)
         return F.sigmoid(ys.squeeze())  # (batch, seq, note)
 
