@@ -203,7 +203,7 @@ class ConvolutionalVariationalAutoEncoder(nn.Module):
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=ConvolutionalVariationalAutoEncoder, opt_class=Adam,
                              loss=lossfn_binary_elbo, acc=accfn_binary_accuracy_elbo,
-                             **kwargs, data_is_sep_part=False)
+                             **kwargs, data_is_sep_part=False, data_is_recons=True)
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs, is_save=True, logger=trainer.logger)
     generate(trainer, n_sample=10, title="gen_poly", is_save=True)

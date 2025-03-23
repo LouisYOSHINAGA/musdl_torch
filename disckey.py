@@ -84,7 +84,7 @@ def discriminate(trainer: Trainer) -> None:
 def run(**kwargs: Any) -> None:
     trainer: Trainer = setup(model_class=KeyDiscNet, opt_class=Adam,
                              loss=lossfn_binary_cross_entropy, acc=accfn_binary_accuracy,
-                             **kwargs, data_is_sep_part=False, conf="!fk")
+                             **kwargs, data_is_sep_part=False, data_is_recons=False, conf="!fk")
     train_losses, train_accs, test_losses, test_accs = trainer()
     plot_train_log(train_losses, train_accs, test_losses, test_accs, is_save=True, logger=trainer.logger)
     discriminate(trainer)

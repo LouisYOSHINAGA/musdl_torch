@@ -110,6 +110,7 @@ class Trainer:
             'train_acc': self.train_accs,
             'test_loss': self.test_losses,
             'test_acc': self.test_accs,
+            'hps': self.hps,
         }
         self.model.to(self.model.device)  # restore for next epoch
         t.save(state_dict, self.save_path)

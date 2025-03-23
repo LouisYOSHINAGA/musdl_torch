@@ -8,7 +8,9 @@ from typedef import *
 from hparam import HyperParams
 from log import Logger
 
-Data: TypeAlias = tuple[PianoRollTensor, NoteSequenceTensor|PianoRollTensor, KeyModeTensor]
+Data: TypeAlias = tuple[PianoRollTensor, NoteSequenceTensor, KeyModeTensor] \
+                | tuple[PianoRollTensor, PianoRollTensor, KeyModeTensor] \
+                | tuple[PianoRollTensor, KeyModeTensor]
 
 
 class MIDIChoraleDatset(Dataset):
@@ -54,7 +56,9 @@ class MIDIChoraleDatset(Dataset):
     def load_midi_file(self, filename: str, is_relative_pitch: bool, resolution: int, \
                        note_low: int, note_high: int) -> tuple[dict[str, PianoRoll], int] | tuple[None, None]:
         if not os.path.isfile(filename):
+            self.logger.info(f"Target file '{filename}' does not found.")
             return None, None
+
         midi: pm.PrettyMIDI = pm.PrettyMIDI(filename)
         self.logger.debug(f"Loading MIDI file '{filename}'.")
 
@@ -117,7 +121,8 @@ class MIDIChoraleDatset(Dataset):
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
-            data = t.Tensor(pr[start:end]), t.Tensor(pr[start:end]), kmt
+            data = (t.Tensor(pr[start:end]), t.Tensor(pr[start:end]), kmt) if self.is_recons \
+                   else (t.Tensor(pr[start:end]), kmt)
         return self.filenames[index], data
 
     def get_sequence_range(self, full_length: int) -> tuple[int, int]:
@@ -210,7 +215,9 @@ def setup_dataloaders(hps: HyperParams, logger: Logger, conf: str) -> tuple[MIDI
     n_test_data: int = n_data - n_train_data
     logger(f"Split the dataset into training data ({n_train_data} samples) and test data ({n_test_data} samples).\n")
 
-    train_dataset, test_dataset = random_split(dataset, [n_train_data, n_test_data])
+    assert isinstance(hps.data_split_seed, int), f"Seed for train test split must be integer."
+    generator: t.Generator = t.Generator().manual_seed(hps.data_split_seed)
+    train_dataset, test_dataset = random_split(dataset, [n_train_data, n_test_data], generator)
     train_dataloader = MIDIChoraleDataLoader(dataset=train_dataset, batch_size=hps.data_batch_size, shuffle=True, conf=conf)
     test_dataloader = MIDIChoraleDataLoader(dataset=test_dataset, batch_size=hps.data_batch_size, shuffle=False, conf=conf)
     return train_dataloader, test_dataloader

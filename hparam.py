@@ -1,3 +1,5 @@
+import os, random
+import torch as t
 from typing import Any
 
 
@@ -16,6 +18,11 @@ class HyperParams(dict):
 
 
 default_hps = HyperParams(
+    meta_override_headers=(
+        "data", "kdn", "hrm", "cmp", "mrp", "gen_vae",
+    ),
+    meta_is_overridden=False,
+
     general_device="cpu",
     general_output_path="out",
     general_log_path=None,
@@ -32,6 +39,7 @@ default_hps = HyperParams(
     data_extract_method="head",
     data_is_recons=False,
     data_batch_size=32,
+    data_split_seed=random.randrange(2**32-1),
     data_train_test_split=0.8,
 
     kdn_hidden_dims=[6, ],
@@ -86,4 +94,18 @@ def setup_hyperparams(**kwargs: Any) -> HyperParams:
     for k, v in kwargs.items():
         assert k in hps, f"Hyper Parameter '{k}' does not exist."
         hps[k] = v
+
+    if hps.train_load_path is not None:
+        assert os.path.isfile(hps.train_load_path)
+        checkpoint: dict[str, Any] = t.load(hps.train_load_path)
+        if "hps" in checkpoint.keys():
+            res_hps: HyperParams = checkpoint["hps"]
+            for k, v in res_hps.items():
+                is_override: bool = False 
+                for oh in hps.meta_override_headers:
+                    if k.startswith(oh):
+                        is_override = True 
+                if is_override:
+                    hps[k] = v
+                    hps.meta_is_overridden = True
     return hps
