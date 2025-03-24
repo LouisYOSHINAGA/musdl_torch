@@ -113,7 +113,8 @@ def morph(trainer: Trainer, n_intp: int, title: str ="morph", is_train: bool =Fa
     idxs: list[int] = random.sample(range(len(xs)), k=2)
     ys: PianoRollBatchTensor = trainer.model.morph(xs, idxs, n_intp).to("cpu")[:, :, :-1]  # remove rest
 
-    trainer.logger(f"{'\n' if title is None else ''}Target MIDI files for morphing: {fns[idxs[0]]}, {fns[idxs[1]]}")
+    trainer.logger('\n' if title is None else '')
+    trainer.logger(f"Target MIDI files for morphing: {fns[idxs[0]]}, {fns[idxs[1]]}")
     plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
     save_batch_midi(ys, trainer=trainer, title=title)
 
@@ -124,6 +125,7 @@ def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwa
     trainer.model.eval()
     ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
 
-    trainer.logger(f"{'\n' if title is None else ''}Generate {n_sample} samples.")
+    trainer.logger('\n' if title is None else '')
+    trainer.logger(f"Generate {n_sample} samples.")
     plot_batch_pianoroll(ys, trainer=trainer, title=title, **plot_kwargs)
     save_batch_midi(ys, trainer=trainer, title=title)
