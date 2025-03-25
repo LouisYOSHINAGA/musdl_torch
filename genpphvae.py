@@ -158,7 +158,7 @@ class ConvolutionalDecoder(nn.Module):
             assert False, f"Unexpected model size '{self.model_size}'."
 
     def forward(self, zs: LatentBatchTensor) -> PianoRollBatchTensor:
-        ys: t.Tensor = F.relu(self.fc(zs)).reshape(-1, self.hidden_dim, 1, 1)  # (batch, dim) -> (batch, dim, 1, 1)
+        ys: t.Tensor = F.relu(self.fc(zs.to(self.device))).reshape(-1, self.hidden_dim, 1, 1)  # (batch, dim) -> (batch, dim, 1, 1)
         ys = self.convs(ys)  # (batch, 1, seq, note)
         return F.sigmoid(ys.squeeze())  # (batch, seq, note)
 
@@ -170,7 +170,7 @@ class ConvolutionalDecoder(nn.Module):
     @t.no_grad()
     def morph(self, zs: LatentBatchTensor, idxs: list[int], n_intp: int) -> PianoRollBatchTensor:
         assert len(zs) >= 2 and len(idxs) >= 2 and n_intp >= 3
-        vs: LatentBatchTensor = t.empty(n_intp, *zs.shape[1:])
+        vs: LatentBatchTensor = t.empty(n_intp, *zs.shape[1:], device=self.device)
         for i in range(n_intp):
             vs[i] = i/(n_intp-1) * zs[idxs[0]] + (n_intp-1-i)/(n_intp-1) * zs[idxs[1]]
         return self.forward(vs)  # (n_intp, seq, note)

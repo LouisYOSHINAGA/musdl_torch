@@ -123,7 +123,7 @@ def generate(trainer: Trainer, n_sample: int, title: str ="generate", **plot_kwa
     trainer.logger(f"\nOutput directory for generation '{trainer.outdir}/{title}' is newly made.")
 
     trainer.model.eval()
-    ys: PianoRollBatchTensor = trainer.model.generate(n_sample)
+    ys: PianoRollBatchTensor = trainer.model.generate(n_sample).to("cpu")
 
     trainer.logger('\n' if title is None else '')
     trainer.logger(f"Generate {n_sample} samples.")

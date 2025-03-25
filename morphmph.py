@@ -71,7 +71,7 @@ class Decoder(nn.Module):
     @t.no_grad()
     def morph(self, zs: LatentBatchTensor, idxs: list[int], n_intp: int) -> PianoRollBatchTensor:
         assert len(zs) >= 2 and len(idxs) >= 2 and n_intp >= 3
-        vs: LatentBatchTensor = t.empty(n_intp, *zs.shape[1:])
+        vs: LatentBatchTensor = t.empty(n_intp, *zs.shape[1:], device=self.device)
         for i in range(n_intp):
             vs[i] = i/(n_intp-1) * zs[idxs[0]] + (n_intp-1-i)/(n_intp-1) * zs[idxs[1]]
 
