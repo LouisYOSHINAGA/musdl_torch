@@ -8,9 +8,11 @@ from typedef import *
 from hparam import HyperParams
 from log import Logger
 
-Data: TypeAlias = tuple[PianoRollTensor, NoteSequenceTensor, KeyModeTensor] \
+NoteSequence: TypeAlias = np.ndarray
+Data: TypeAlias = tuple[PianoRollTensor, NoteSequence, KeyModeTensor] \
                 | tuple[PianoRollTensor, PianoRollTensor, KeyModeTensor] \
-                | tuple[PianoRollTensor, KeyModeTensor]
+                | tuple[PianoRoll, PianoRoll, KeyModeTensor] \
+                | tuple[PianoRoll, KeyModeTensor]
 
 
 class MIDIChoraleDatset(Dataset):
@@ -121,8 +123,7 @@ class MIDIChoraleDatset(Dataset):
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
-            data = (t.Tensor(pr[start:end]), t.Tensor(pr[start:end]), kmt) if self.is_recons \
-                   else (t.Tensor(pr[start:end]), kmt)
+            data = (pr[start:end], pr[start:end], kmt) if self.is_recons else (pr[start:end], kmt)
         return self.filenames[index], data
 
     def get_sequence_range(self, full_length: int) -> tuple[int, int]:
@@ -147,12 +148,12 @@ class MIDIChoraleDatset(Dataset):
             assert False, f"Unexpected method of data sequence extraction."
         return start, end
 
-    def onehot(self, pr: PianoRoll) -> PianoRollTensor:
+    def onehot(self, pr: PianoRoll) -> PianoRoll:
         is_rest: np.ndarray = np.expand_dims(1 - np.sum(pr, axis=1), axis=1)
-        return t.Tensor(np.concatenate([pr, is_rest], axis=1))
+        return np.concatenate([pr, is_rest], axis=1).astype(np.float32)
 
-    def numerical(self, pr: PianoRoll) -> NoteSequenceTensor:
-        return t.argmax(self.onehot(pr), dim=1)
+    def numerical(self, pr: PianoRoll) -> NoteSequence:
+        return self.onehot(pr).argmax(axis=1)
 
     def __len__(self) -> int:
         return len(self.key_modes)
@@ -228,7 +229,7 @@ if __name__ == "__main__":
     from log import setup_logger
     from plot import plot_pianoroll
 
-    hps: HyperParams = setup_hyperparams(data_is_sep_part=False, general_log_level="debug")
+    hps: HyperParams = setup_hyperparams(data_is_sep_part=False, data_is_recons=False, general_log_level="debug")
     logger: Logger = setup_logger(hps)
     _, test_dataloader = setup_dataloaders(hps, logger, conf="f!k")
 
