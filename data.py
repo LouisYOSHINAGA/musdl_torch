@@ -22,6 +22,7 @@ class MIDIChoraleDatset(Dataset):
         self.extract_method: str = hps.data_extract_method
         self.rng: np.random.Generator = np.random.default_rng()
         self.is_recons: bool = hps.data_is_recons
+        self.noise_prob: float = hps.data_noise_prob if hps.data_is_noise else 0.0
         self.batch_size: int = hps.data_batch_size
         self.logger: Logger = logger
         self.load(hps)
@@ -123,7 +124,7 @@ class MIDIChoraleDatset(Dataset):
         else:
             pr: PianoRoll = self.prs[index]
             start, end = self.get_sequence_range(full_length=pr.shape[0])
-            data = (pr[start:end], pr[start:end], kmt) if self.is_recons else (pr[start:end], kmt)
+            data = (self.noise(pr[start:end]), pr[start:end], kmt) if self.is_recons else (pr[start:end], kmt)
         return self.filenames[index], data
 
     def get_sequence_range(self, full_length: int) -> tuple[int, int]:
@@ -148,12 +149,24 @@ class MIDIChoraleDatset(Dataset):
             assert False, f"Unexpected method of data sequence extraction."
         return start, end
 
-    def onehot(self, pr: PianoRoll) -> PianoRoll:
+    def onehot(self, pr: PianoRoll, is_no_shift: bool =False) -> PianoRoll:
         is_rest: np.ndarray = np.expand_dims(1 - np.sum(pr, axis=1), axis=1)
-        return np.concatenate([pr, is_rest], axis=1).astype(np.float32)
+        pr = np.concatenate([pr, is_rest], axis=1).astype(np.float32)
+        seq, note = pr.shape
+        numerical: np.ndarray = np.argmax(pr, axis=1)
+        shift: np.ndarray = np.zeros(seq) if is_no_shift \
+                            else (self.rng.random(size=seq) < self.noise_prob) * np.round(self.rng.normal(0, 1, size=seq))
+        numerical = np.clip(numerical + shift, 0, note-1).astype(np.int32)
+        pr = np.zeros((seq, note))
+        pr[np.arange(seq), numerical] = 1
+        return pr
 
     def numerical(self, pr: PianoRoll) -> NoteSequence:
-        return self.onehot(pr).argmax(axis=1)
+        return self.onehot(pr, is_no_shift=True).argmax(axis=1)
+
+    def noise(self, pr: PianoRoll) -> PianoRoll:
+        noise: np.ndarray = np.where(self.rng.random(pr.shape) < self.noise_prob, 0, 1)
+        return np.clip(pr + noise, 0, 1)
 
     def __len__(self) -> int:
         return len(self.key_modes)

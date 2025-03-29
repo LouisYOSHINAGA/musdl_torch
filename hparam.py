@@ -38,6 +38,8 @@ default_hps = HyperParams(
     data_note_high=84,
     data_extract_method="head",
     data_is_recons=False,
+    data_is_noise=False,
+    data_noise_prob=0.01,
     data_batch_size=32,
     data_split_seed=random.randrange(2**32-1),
     data_train_test_split=0.8,
@@ -101,10 +103,10 @@ def setup_hyperparams(**kwargs: Any) -> HyperParams:
         if "hps" in checkpoint.keys():
             res_hps: HyperParams = checkpoint["hps"]
             for k, v in res_hps.items():
-                is_override: bool = False 
+                is_override: bool = False
                 for oh in hps.meta_override_headers:
                     if k.startswith(oh):
-                        is_override = True 
+                        is_override = True
                 if is_override:
                     hps[k] = v
                     hps.meta_is_overridden = True
