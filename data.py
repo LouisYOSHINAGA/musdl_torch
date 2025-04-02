@@ -122,7 +122,7 @@ class MIDIChoraleDatset(Dataset):
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
             data: Data = self.onehot(pr_sop[start:end]), self.numerical(pr_recons[start:end]), kmt
         else:
-            pr: PianoRoll = self.prs[index]
+            pr: PianoRoll = self.prs[index].astype(np.float32)
             start, end = self.get_sequence_range(full_length=pr.shape[0])
             data = (self.noise(pr[start:end]), pr[start:end], kmt) if self.is_recons else (pr[start:end], kmt)
         return self.filenames[index], data
@@ -159,7 +159,7 @@ class MIDIChoraleDatset(Dataset):
         numerical = np.clip(numerical + shift, 0, note-1).astype(np.int32)
         pr = np.zeros((seq, note))
         pr[np.arange(seq), numerical] = 1
-        return pr
+        return pr.astype(np.float32)
 
     def numerical(self, pr: PianoRoll) -> NoteSequence:
         return self.onehot(pr, is_no_shift=True).argmax(axis=1)
