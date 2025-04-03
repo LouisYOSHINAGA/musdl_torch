@@ -109,20 +109,20 @@ class MIDIChoraleDatset(Dataset):
         # tempo: beats per minute = 4th-notes per 60 seconds
         # -> tempo/60: sample same number of times as 4th-notes per second
         # -> (N/4)*tempo/60: sample same number of times as Nth-notes per second
-        pr: PianoRoll = midi.get_piano_roll(fs=int((resolution/4)*tempo/60))  # (pitch, time)
+        pr: PianoRoll = midi.get_piano_roll(fs=int((resolution/4)*tempo/60))  # (note, seq)
         if pr.shape[1] < self.sequence_length:
             pr = np.concatenate([pr, np.zeros((pr.shape[0], self.sequence_length-pr.shape[1]))], axis=1)
-        return np.where(pr[note_low:note_high] <= 0, 0, 1).T
+        return np.where(pr[note_low:note_high] <= 0, 0, 1).T  # (seq, note)
 
     def __getitem__(self, index: int) -> tuple[str, Data]:
         kmt: KeyModeTensor = t.Tensor([self.key_modes[index]])
         if self.is_sep_part:
-            pr_sop: PianoRoll = self.prs_sop[index]
+            pr_sop: PianoRoll = self.prs_sop[index]  # (seq, note)
             pr_recons: PianoRoll = pr_sop if self.is_recons else self.prs_alt[index]
             start, end = self.get_sequence_range(full_length=pr_sop.shape[0])
             data: Data = self.onehot(pr_sop[start:end]), self.numerical(pr_recons[start:end]), kmt
         else:
-            pr: PianoRoll = self.prs[index].astype(np.float32)
+            pr: PianoRoll = self.prs[index].astype(np.float32)  # (seq, note)
             start, end = self.get_sequence_range(full_length=pr.shape[0])
             data = (self.noise(pr[start:end]), pr[start:end], kmt) if self.is_recons else (pr[start:end], kmt)
         return self.filenames[index], data
@@ -166,7 +166,7 @@ class MIDIChoraleDatset(Dataset):
 
     def noise(self, pr: PianoRoll) -> PianoRoll:
         noise: np.ndarray = np.where(self.rng.random(pr.shape) < self.noise_prob, 0, 1)
-        return np.clip(pr + noise, 0, 1)
+        return np.clip(pr + noise, 0, 1).astype(np.float32)
 
     def __len__(self) -> int:
         return len(self.key_modes)
