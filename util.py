@@ -46,7 +46,7 @@ def lossfn_elbo(inputs: tuple[t.Tensor, t.Tensor], target: t.Tensor) -> t.Tensor
 
 def lossfn_binary_elbo(inputs: tuple[t.Tensor, t.Tensor], target: t.Tensor) -> t.Tensor:
     recons, kl_loss = inputs
-    recons_loss: t.Tensor = F.binary_cross_entropy(recons, target)
+    recons_loss: t.Tensor = F.binary_cross_entropy_with_logits(recons, target)
     return recons_loss + kl_loss
 
 def accfn_binary_accuracy(input: t.Tensor, target: t.Tensor) -> t.Tensor:

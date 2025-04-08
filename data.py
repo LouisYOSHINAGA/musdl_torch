@@ -165,7 +165,7 @@ class MIDIChoraleDatset(Dataset):
         return self.onehot(pr, is_no_shift=True).argmax(axis=1)
 
     def noise(self, pr: PianoRoll) -> PianoRoll:
-        noise: np.ndarray = np.where(self.rng.random(pr.shape) < self.noise_prob, 0, 1)
+        noise: np.ndarray = np.where(self.rng.random(pr.shape) < self.noise_prob, 1, 0)
         return np.clip(pr + noise, 0, 1).astype(np.float32)
 
     def __len__(self) -> int:

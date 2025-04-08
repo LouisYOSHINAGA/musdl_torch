@@ -71,7 +71,6 @@ class ConvolutionalEncoder(nn.Module):
                 nn.LeakyReLU(negative_slope=0.3),
                 nn.Dropout(0.3)
             )
-
         else:
             assert False, f"Unexpected model size '{self.model_size}'."
 
@@ -87,7 +86,7 @@ class ConvolutionalEncoder(nn.Module):
         ys = ys.reshape(-1, self.hidden_dim)  # (batch, dim)
 
         mean: t.Tensor = self.fc_mean(ys)  # (batch, dim)
-        lnvar: t.Tensor = self.fc_mean(ys)  # (batch, dim)
+        lnvar: t.Tensor = self.fc_lnvar(ys)  # (batch, dim)
         return self.reparameterize(mean, lnvar), self.kl_loss(mean, lnvar)
 
     def reparameterize(self, mean: t.Tensor, lnvar: t.Tensor) -> LatentBatchTensor:
@@ -159,8 +158,7 @@ class ConvolutionalDecoder(nn.Module):
 
     def forward(self, zs: LatentBatchTensor) -> PianoRollBatchTensor:
         ys: t.Tensor = F.relu(self.fc(zs.to(self.device))).reshape(-1, self.hidden_dim, 1, 1)  # (batch, dim) -> (batch, dim, 1, 1)
-        ys = self.convs(ys)  # (batch, 1, seq, note)
-        return F.sigmoid(ys.squeeze())  # (batch, seq, note)
+        return self.convs(ys).squeeze()  # (batch, 1, seq, note) -> (batch, seq, note)
 
     @t.no_grad()
     def generate(self, n_sample: int) -> PianoRollBatchTensor:
